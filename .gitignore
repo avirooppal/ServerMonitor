@@ -1,0 +1,30 @@
+# Binaries
+server-moni
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Node / Frontend
+node_modules/
+web/node_modules/
+web/dist/
+web/.env.local
+web/.env.development.local
+web/.env.test.local
+web/.env.production.local
+
+# Data & Config (Runtime)
+data/*
+!data/.keep
+*.db
+*.sqlite
+*.log
+
+# OS & Editors
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
