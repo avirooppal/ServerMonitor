@@ -2,7 +2,8 @@
 
 A beautiful, real-time server monitoring dashboard inspired by the premium aesthetic of FiveNines.io. Built with Go and React.
 
-![Dashboard Preview](https://via.placeholder.com/800x450.png?text=Server+Moni+Dashboard)
+<img width="1914" height="874" alt="image" src="https://github.com/user-attachments/assets/2779b9a6-8ab2-407e-9a9a-f44ffc6afcbe" />
+
 
 ## Features
 
@@ -26,8 +27,8 @@ The easiest way to run Server Moni is using Docker Compose.
 
 1.  **Clone the repository**
     ```bash
-    git clone https://github.com/yourusername/server-moni.git
-    cd server-moni
+    git clone https://github.com/avirooppal/ServerMonitor.git
+    cd ServerMonitor
     ```
 
 2.  **Start the application**
