@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { fetchMetrics } from '../utils/api';
+import { fetchMetrics, fetchServers, type ServerSummary } from '../utils/api';
 import type { SystemMetrics } from '../types';
 import { Activity, Cpu, HardDrive, Server, Layers, Settings, LogOut, LayoutDashboard, Box } from 'lucide-react';
 import clsx from 'clsx';
@@ -30,14 +30,30 @@ const TABS = [
 
 export const Dashboard: React.FC<DashboardProps> = ({ onLogout }) => {
     const [metrics, setMetrics] = useState<SystemMetrics | null>(null);
+    const [servers, setServers] = useState<ServerSummary[]>([]);
+    const [selectedServer, setSelectedServer] = useState<string>('local');
     const [activeTab, setActiveTab] = useState('overview');
     const [refreshRate, setRefreshRate] = useState(2000);
     const [error, setError] = useState('');
 
     useEffect(() => {
+        const loadServers = async () => {
+            try {
+                const list = await fetchServers();
+                setServers(list);
+            } catch (e) {
+                console.error("Failed to fetch servers", e);
+            }
+        };
+        loadServers();
+        const interval = setInterval(loadServers, 5000);
+        return () => clearInterval(interval);
+    }, []);
+
+    useEffect(() => {
         const load = async () => {
             try {
-                const data = await fetchMetrics();
+                const data = await fetchMetrics(selectedServer);
                 setMetrics(data);
                 setError('');
             } catch (err) {
@@ -48,7 +64,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onLogout }) => {
         load();
         const interval = setInterval(load, refreshRate);
         return () => clearInterval(interval);
-    }, [refreshRate]);
+    }, [refreshRate, selectedServer]);
 
     return (
         <div className="flex flex-col h-screen bg-background text-gray-100 overflow-hidden font-sans selection:bg-primary/30">
@@ -63,6 +79,23 @@ export const Dashboard: React.FC<DashboardProps> = ({ onLogout }) => {
                     </div>
 
                     <div className="flex items-center space-x-4">
+                        {/* Server Selector */}
+                        <div className="flex items-center space-x-2 bg-background/50 rounded-lg px-3 py-1.5 border border-white/5">
+                            <span className="text-xs text-gray-500 uppercase font-semibold tracking-wider">Server</span>
+                            <select
+                                className="bg-transparent text-sm focus:outline-none text-accent font-medium cursor-pointer"
+                                value={selectedServer}
+                                onChange={(e) => setSelectedServer(e.target.value)}
+                            >
+                                <option value="local">Localhost</option>
+                                {servers.map(s => (
+                                    <option key={s.id} value={s.id}>
+                                        {s.hostname} ({s.id})
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+
                         <div className="flex items-center space-x-2 bg-background/50 rounded-lg px-3 py-1.5 border border-white/5">
                             <span className="text-xs text-gray-500 uppercase font-semibold tracking-wider">Refresh</span>
                             <select

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Save, Shield, Server, Key } from 'lucide-react';
-import { setApiKey as saveApiKey, getApiKey } from '../../utils/api';
+import { setApiKey as saveApiKey, getApiKey, client } from '../../utils/api';
 
 export const SettingsSection: React.FC = () => {
     const [apiKey, setApiKey] = useState('');
@@ -59,6 +59,60 @@ export const SettingsSection: React.FC = () => {
                         <Save size={20} />
                         <span>{saved ? 'Saved Successfully!' : 'Save Configuration'}</span>
                     </button>
+                </div>
+            </div>
+
+            <div className="bg-[#1e293b]/50 backdrop-blur-sm p-8 rounded-2xl border border-gray-800/50 shadow-xl">
+                <div className="flex items-center space-x-3 mb-6">
+                    <div className="p-2 bg-purple-500/10 rounded-lg">
+                        <Server className="text-purple-400 w-6 h-6" />
+                    </div>
+                    <div>
+                        <h2 className="text-xl font-bold text-white">Connect New Server</h2>
+                        <p className="text-gray-400 text-sm">Deploy an agent to monitor another system</p>
+                    </div>
+                </div>
+
+                <div className="space-y-4">
+                    <div className="bg-gray-900/50 p-4 rounded-xl border border-gray-700/50">
+                        <p className="text-sm text-gray-400 mb-2">1. Run this command on your target server:</p>
+                        <div className="font-mono text-xs text-green-400 break-all bg-black/30 p-3 rounded-lg border border-white/5 select-all">
+                            curl -sL {window.location.origin}/install.sh | bash -s -- -server {window.location.origin}
+                        </div>
+                        <p className="text-xs text-gray-500 mt-2">
+                            The script will generate a unique <strong>Agent Token</strong>. Copy it.
+                        </p>
+                    </div>
+
+                    <div className="bg-gray-900/50 p-4 rounded-xl border border-gray-700/50">
+                        <p className="text-sm text-gray-400 mb-2">2. Paste the Agent Token here to link it:</p>
+                        <div className="flex space-x-2">
+                            <input
+                                type="text"
+                                placeholder="Paste Agent Token..."
+                                className="flex-1 bg-black/30 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-purple-500"
+                                id="agent-token-input"
+                            />
+                            <button
+                                onClick={async () => {
+                                    const input = document.getElementById('agent-token-input') as HTMLInputElement;
+                                    const token = input.value.trim();
+                                    if (!token) return;
+
+                                    try {
+                                        await client.post('/agents', { token, name: 'New Agent' });
+                                        input.value = '';
+                                        alert('Agent linked successfully!');
+                                    } catch (e) {
+                                        alert('Failed to link agent');
+                                    }
+                                }}
+                                className="bg-purple-600 hover:bg-purple-500 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+                            >
+                                Link
+                            </button>
+                        </div>
+                    </div>
                 </div>
             </div>
 

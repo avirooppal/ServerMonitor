@@ -11,7 +11,7 @@ import (
 var DB *sql.DB
 
 func InitDB() {
-	dbPath := "server-moni.db"
+	dbPath := "data/server-moni.db"
 	// Check if running in docker or specific path needed, for now relative to binary
 	
 	var err error

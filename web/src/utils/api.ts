@@ -10,7 +10,7 @@ export const getApiKey = () => {
     return localStorage.getItem('server_moni_key');
 };
 
-const client = axios.create({
+export const client = axios.create({
     baseURL: API_URL,
 });
 
@@ -22,8 +22,21 @@ client.interceptors.request.use((config) => {
     return config;
 });
 
-export const fetchMetrics = async () => {
-    const response = await client.get('/metrics');
+export interface ServerSummary {
+    id: string;
+    hostname: string;
+    platform: string;
+    last_update: string;
+}
+
+export const fetchServers = async (): Promise<ServerSummary[]> => {
+    const response = await client.get('/servers');
+    return response.data;
+};
+
+export const fetchMetrics = async (serverId?: string) => {
+    const params = serverId ? { server_id: serverId } : {};
+    const response = await client.get('/metrics', { params });
     return response.data;
 };
 

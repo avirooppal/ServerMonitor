@@ -43,6 +43,37 @@ The easiest way to run Server Moni is using Docker Compose.
     - Check the container logs (`docker-compose logs`) or look at the file `data/api_key.txt` to find it.
     - Enter this key in the web interface to connect.
 
+## Multi-Server Monitoring
+
+Server Moni supports monitoring multiple servers from a single dashboard using a lightweight Agent.
+
+### 1. Central Dashboard
+The main application acts as the central server. It collects metrics from its own host ("Localhost") and accepts data from remote agents.
+
+### 2. Deploying Agents
+
+#### Linux Servers
+1.  Go to the **Settings** tab on your dashboard.
+2.  Copy the **Install Command** (it looks like `curl ... | bash`).
+3.  Run it on your remote server.
+4.  The script will print a unique **Agent Token**. Copy it.
+
+#### Windows Servers
+1.  Build the agent binary:
+    ```powershell
+    go build -o agent.exe cmd/agent/main.go
+    ```
+2.  Run the agent manually with a secure token of your choice:
+    ```powershell
+    .\agent.exe -server http://<DASHBOARD_IP>:8080 -key <YOUR_SECRET_TOKEN>
+    ```
+
+### 3. Linking Agents
+1.  Go back to the **Settings** tab on the dashboard.
+2.  Paste the **Agent Token** into the "Link Agent" section.
+3.  Click **Link**.
+4.  The new server will appear in the **Server Selector** dropdown at the top of the dashboard.
+
 ## Deployment
 
 ### Full Stack (Single Server)

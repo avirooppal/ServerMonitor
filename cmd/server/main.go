@@ -27,8 +27,18 @@ func main() {
 	// Initialize Auth (Generate Key if needed)
 	auth.InitAuth()
 
-	// Start Metric Collector
-	go metrics.StartCollector(1 * time.Second)
+	// Initialize Metric Store
+	metrics.InitStore()
+
+	// Start Local Collector (Self-Monitoring)
+	go func() {
+		collector := metrics.NewCollector()
+		ticker := time.NewTicker(1 * time.Second)
+		for range ticker.C {
+			m := collector.Collect()
+			metrics.GlobalStore.Update("local", m)
+		}
+	}()
 
 	// Setup Web Server
 	r := gin.Default()
@@ -62,6 +72,9 @@ func main() {
 		r.StaticFS("/assets", http.FS(assetsFS))
 		r.GET("/vite.svg", func(c *gin.Context) {
 			c.FileFromFS("vite.svg", http.FS(distFS))
+		})
+		r.GET("/install.sh", func(c *gin.Context) {
+			c.FileFromFS("install.sh", http.FS(distFS))
 		})
 		r.NoRoute(func(c *gin.Context) {
 			// Serve index.html for SPA routing

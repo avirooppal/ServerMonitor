@@ -28,13 +28,83 @@ func RegisterRoutes(r *gin.Engine) {
 	authenticated.Use(auth.AuthMiddleware())
 	{
 		authenticated.GET("/metrics", GetMetrics)
+		authenticated.GET("/servers", GetServers)
+		authenticated.POST("/agents", RegisterAgent)
 		authenticated.GET("/status", GetStatus)
+	}
+
+	// Ingestion endpoint uses Agent Auth (or Master Key)
+	ingest := api.Group("/")
+	ingest.Use(auth.AgentAuthMiddleware())
+	{
+		ingest.POST("/ingest", IngestMetrics)
 	}
 }
 
+func RegisterAgent(c *gin.Context) {
+	var req struct {
+		Token string `json:"token"`
+		Name  string `json:"name"`
+	}
+	if err := c.BindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	if req.Token == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Token is required"})
+		return
+	}
+
+	auth.AddAgentToken(req.Token, req.Name)
+	c.Status(http.StatusOK)
+}
+
 func GetMetrics(c *gin.Context) {
-	data := metrics.GetMetrics()
+	serverID := c.Query("server_id")
+	if serverID == "" {
+		serverID = "local"
+	}
+
+	data, ok := metrics.GlobalStore.Get(serverID)
+	if !ok {
+		// If requesting local and it's not ready yet, return empty or wait?
+		// Better to return 404 or empty structure.
+		c.JSON(http.StatusNotFound, gin.H{"error": "Server not found"})
+		return
+	}
 	c.JSON(http.StatusOK, data)
+}
+
+func GetServers(c *gin.Context) {
+	all := metrics.GlobalStore.GetAll()
+	var servers []gin.H
+	for id, m := range all {
+		servers = append(servers, gin.H{
+			"id":          id,
+			"hostname":    m.HostInfo.Hostname,
+			"platform":    m.HostInfo.Platform,
+			"last_update": m.LastUpdate,
+		})
+	}
+	c.JSON(http.StatusOK, servers)
+}
+
+func IngestMetrics(c *gin.Context) {
+	var m metrics.SystemMetrics
+	if err := c.BindJSON(&m); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	
+	// Determine Server ID (prefer HostID, fallback to Hostname)
+	serverID := m.HostInfo.Hostname
+	if m.HostInfo.HostID != "" {
+		serverID = m.HostInfo.HostID
+	}
+	
+	metrics.GlobalStore.Update(serverID, m)
+	c.Status(http.StatusOK)
 }
 
 func GetStatus(c *gin.Context) {
