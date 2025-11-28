@@ -24,6 +24,13 @@ fi
 # Detect Public IP
 PUBLIC_IP=$(curl -s ifconfig.me || curl -s icanhazip.com || echo "<YOUR_SERVER_IP>")
 
+# Format URL (Handle IPv6)
+if [[ "$PUBLIC_IP" == *":"* ]]; then
+    AGENT_URL="http://[$PUBLIC_IP]:8080"
+else
+    AGENT_URL="http://$PUBLIC_IP:8080"
+fi
+
 echo "=================================================="
 echo "       SERVER MONI AGENT CONFIGURATION"
 echo "=================================================="
@@ -31,7 +38,7 @@ echo ""
 echo "Enter these details in your Cloud Dashboard:"
 echo ""
 echo "Name:    $(hostname)"
-echo "URL:     http://$PUBLIC_IP:8080"
+echo "URL:     $AGENT_URL"
 echo "API Key: $API_KEY"
 echo ""
 echo "=================================================="
