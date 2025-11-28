@@ -76,6 +76,9 @@ func main() {
 		r.GET("/install.sh", func(c *gin.Context) {
 			c.FileFromFS("install.sh", http.FS(distFS))
 		})
+		r.GET("/get-key.sh", func(c *gin.Context) {
+			c.FileFromFS("get-key.sh", http.FS(distFS))
+		})
 		r.NoRoute(func(c *gin.Context) {
 			// Serve index.html for SPA routing
 			file, err := distFS.Open("index.html")
