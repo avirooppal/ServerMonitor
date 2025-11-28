@@ -16,13 +16,12 @@ import (
 func RegisterRoutes(r *gin.Engine) {
 	api := r.Group("/api/v1")
 	
-	api.POST("/verify-key", func(c *gin.Context) {
-		c.JSON(http.StatusOK, gin.H{"status": "valid"})
-	})
-
 	authenticated := api.Group("/")
 	authenticated.Use(auth.AuthMiddleware())
 	{
+		authenticated.POST("/verify-key", func(c *gin.Context) {
+			c.JSON(http.StatusOK, gin.H{"status": "valid"})
+		})
 		authenticated.GET("/metrics", GetMetrics)
 		authenticated.GET("/systems", GetSystems)
 		authenticated.POST("/systems", AddSystem)
