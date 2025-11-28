@@ -2,13 +2,16 @@
 
 # Server Moni - Get Agent Info
 
-CONTAINER_NAME="server-moni-agent"
+# Find container name (handles docker-compose naming)
+CONTAINER_NAME=$(docker ps --format '{{.Names}}' | grep -E "server.*agent" | head -n 1)
 
-# Check if container is running
-if ! docker ps | grep -q "$CONTAINER_NAME"; then
-    echo "Error: Agent container '$CONTAINER_NAME' is not running."
+if [ -z "$CONTAINER_NAME" ]; then
+    echo "Error: Could not find a running agent container."
+    echo "Expected a container name containing 'server...agent'"
     exit 1
 fi
+
+echo "Found agent container: $CONTAINER_NAME"
 
 # Retrieve API Key
 API_KEY=$(docker exec $CONTAINER_NAME cat data/api_key.txt 2>/dev/null)
