@@ -37,8 +37,10 @@ export const SettingsSection: React.FC = () => {
             await addSystem(newSystem.name, newSystem.url, newSystem.apiKey);
             setNewSystem({ name: '', url: '', apiKey: '' });
             await loadSystems();
-        } catch (e) {
-            alert('Failed to add system');
+        } catch (e: any) {
+            console.error(e);
+            const msg = e.response?.data?.error || e.message || 'Failed to add system';
+            alert(`Error: ${msg}`);
         } finally {
             setLoading(false);
         }
