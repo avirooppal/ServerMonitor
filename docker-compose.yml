@@ -1,12 +1,27 @@
 version: '3.8'
 services:
-  server-moni:
+  # SaaS Dashboard
+  dashboard:
     build: .
     ports:
       - "8082:8080"
     volumes:
       - ./data:/app/data
-      - /var/run/docker.sock:/var/run/docker.sock
     environment:
       - PORT=8080
+    restart: unless-stopped
+
+  # Local Agent (Simulated)
+  agent:
+    build:
+      context: .
+      dockerfile: Dockerfile.agent
+    ports:
+      - "8081:8080"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./agent_data:/app/data
+    environment:
+      - API_PORT=8080
+      - COLLECTION_INTERVAL_SECONDS=5
     restart: unless-stopped

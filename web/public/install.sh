@@ -2,64 +2,64 @@
 
 # Server Moni Agent Installer
 
-SERVER_URL=""
-
-# Parse args
-while [[ "$#" -gt 0 ]]; do
-    case $1 in
-        -server) SERVER_URL="$2"; shift ;;
-        *) echo "Unknown parameter passed: $1"; exit 1 ;;
-    esac
-    shift
-done
-
-if [ -z "$SERVER_URL" ]; then
-    echo "Usage: $0 -server <URL>"
-    exit 1
-fi
-
-# Generate a random Agent Token
-if command -v uuidgen &> /dev/null; then
-    AGENT_TOKEN=$(uuidgen)
-else
-    AGENT_TOKEN=$(cat /proc/sys/kernel/random/uuid 2>/dev/null || date +%s | md5sum | head -c 32)
-fi
-
 echo "=================================================="
 echo "Installing Server Moni Agent..."
-echo "Generated Agent Token: $AGENT_TOKEN"
 echo "=================================================="
 
 # Check for Docker
-if command -v docker &> /dev/null; then
-    echo "Docker found. Running Agent container..."
-    
-    docker run -d \
-        --name server-moni-agent \
-        --restart unless-stopped \
-        --network host \
-        -v /var/run/docker.sock:/var/run/docker.sock \
-        -e SERVER_URL="$SERVER_URL" \
-        -e API_KEY="$AGENT_TOKEN" \
-        server-moni-agent
-        
-elif command -v go &> /dev/null; then
-    echo "Go found. Building Agent from source..."
-    go build -o agent cmd/agent/main.go
-    
-    echo "Starting Agent in background..."
-    nohup ./agent -server "$SERVER_URL" -key "$AGENT_TOKEN" > agent.log 2>&1 &
-    
-else
-    echo "Error: Neither Docker nor Go found."
-    echo "Please install Docker or Go to run the agent."
+if ! command -v docker &> /dev/null; then
+    echo "Error: Docker is not installed."
+    echo "Please install Docker to run the agent."
     exit 1
 fi
 
-echo ""
-echo "Agent is running!"
-echo "PLEASE COPY THE TOKEN BELOW AND PASTE IT IN THE DASHBOARD:"
-echo ""
-echo "   $AGENT_TOKEN"
-echo ""
-echo "=================================================="
+# Pull Image
+IMAGE_NAME="avirooppal/server-moni-agent:latest"
+echo "Pulling latest agent image: $IMAGE_NAME..."
+docker pull $IMAGE_NAME
+
+# Remove existing container if any
+if [ "$(docker ps -aq -f name=server-moni-agent)" ]; then
+    echo "Removing existing agent container..."
+    docker rm -f server-moni-agent
+fi
+
+# Run Agent
+echo "Starting Agent container..."
+docker run -d \
+    --name server-moni-agent \
+    --restart unless-stopped \
+    --network host \
+    -v /var/run/docker.sock:/var/run/docker.sock \
+    -v server-moni-data:/app/data \
+    -e API_PORT=8080 \
+    $IMAGE_NAME
+
+# Wait for startup and key generation
+echo "Waiting for agent to initialize..."
+sleep 5
+
+# Retrieve API Key
+API_KEY=$(docker exec server-moni-agent cat data/api_key.txt 2>/dev/null)
+
+if [ -z "$API_KEY" ]; then
+    echo "Warning: Could not retrieve API Key automatically."
+    echo "Please run: docker exec server-moni-agent cat data/api_key.txt"
+else
+    # Detect Public IP
+    PUBLIC_IP=$(curl -s ifconfig.me || curl -s icanhazip.com || echo "<YOUR_SERVER_IP>")
+
+    echo ""
+    echo "Agent is running!"
+    echo "=================================================="
+    echo "SETUP INSTRUCTIONS:"
+    echo "1. Go to your Cloud Dashboard"
+    echo "2. Click 'Add System'"
+    echo "3. Enter these details:"
+    echo ""
+    echo "   Name:    $(hostname)"
+    echo "   URL:     http://$PUBLIC_IP:8080"
+    echo "   API Key: $API_KEY"
+    echo ""
+    echo "=================================================="
+fi

@@ -1,26 +1,22 @@
 package api
 
 import (
+	"encoding/json"
+	"fmt"
 	"net/http"
-	"runtime"
+	"strconv"
+	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/shirou/gopsutil/v3/host"
 	"github.com/user/server-moni/internal/auth"
+	"github.com/user/server-moni/internal/db"
 	"github.com/user/server-moni/internal/metrics"
 )
 
 func RegisterRoutes(r *gin.Engine) {
 	api := r.Group("/api/v1")
 	
-	// Public endpoint to check if setup is needed? 
-	// For security, we might want to keep everything behind auth or have a specific "is configured" endpoint.
-	// But the requirement says "API Key auto-generated", so it's always configured.
-	
 	api.POST("/verify-key", func(c *gin.Context) {
-		// This endpoint is just to test if the key is valid.
-		// The middleware will handle the actual validation.
-		// If we reach here, the middleware passed, so the key is valid.
 		c.JSON(http.StatusOK, gin.H{"status": "valid"})
 	})
 
@@ -28,96 +24,101 @@ func RegisterRoutes(r *gin.Engine) {
 	authenticated.Use(auth.AuthMiddleware())
 	{
 		authenticated.GET("/metrics", GetMetrics)
-		authenticated.GET("/servers", GetServers)
-		authenticated.POST("/agents", RegisterAgent)
-		authenticated.GET("/status", GetStatus)
-	}
-
-	// Ingestion endpoint uses Agent Auth (or Master Key)
-	ingest := api.Group("/")
-	ingest.Use(auth.AgentAuthMiddleware())
-	{
-		ingest.POST("/ingest", IngestMetrics)
+		authenticated.GET("/systems", GetSystems)
+		authenticated.POST("/systems", AddSystem)
+		authenticated.DELETE("/systems/:id", DeleteSystem)
 	}
 }
 
-func RegisterAgent(c *gin.Context) {
+func AddSystem(c *gin.Context) {
 	var req struct {
-		Token string `json:"token"`
-		Name  string `json:"name"`
+		Name   string `json:"name"`
+		URL    string `json:"url"`
+		APIKey string `json:"api_key"`
 	}
 	if err := c.BindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	if req.Token == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Token is required"})
+	id, err := db.AddSystem(req.Name, req.URL, req.APIKey)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to add system"})
 		return
 	}
 
-	auth.AddAgentToken(req.Token, req.Name)
+	c.JSON(http.StatusOK, gin.H{"id": id})
+}
+
+func GetSystems(c *gin.Context) {
+	systems, err := db.GetSystems()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch systems"})
+		return
+	}
+	c.JSON(http.StatusOK, systems)
+}
+
+func DeleteSystem(c *gin.Context) {
+	idStr := c.Param("id")
+	id, err := strconv.Atoi(idStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid ID"})
+		return
+	}
+
+	if err := db.DeleteSystem(id); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete system"})
+		return
+	}
 	c.Status(http.StatusOK)
 }
 
 func GetMetrics(c *gin.Context) {
-	serverID := c.Query("server_id")
-	if serverID == "" {
-		serverID = "local"
-	}
-
-	data, ok := metrics.GlobalStore.Get(serverID)
-	if !ok {
-		// If requesting local and it's not ready yet, return empty or wait?
-		// Better to return 404 or empty structure.
-		c.JSON(http.StatusNotFound, gin.H{"error": "Server not found"})
+	systemIDStr := c.Query("system_id")
+	if systemIDStr == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "system_id is required"})
 		return
 	}
+
+	systemID, err := strconv.Atoi(systemIDStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid system_id"})
+		return
+	}
+
+	system, err := db.GetSystem(systemID)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "System not found"})
+		return
+	}
+
+	// Proxy to Agent
+	client := &http.Client{Timeout: 5 * time.Second}
+	req, err := http.NewRequest("GET", system.URL+"/api/v1/metrics", nil)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create request"})
+		return
+	}
+	req.Header.Set("Authorization", "Bearer "+system.APIKey)
+
+	resp, err := client.Do(req)
+	if err != nil {
+		c.JSON(http.StatusBadGateway, gin.H{"error": fmt.Sprintf("Failed to connect to agent: %v", err)})
+		return
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		c.JSON(resp.StatusCode, gin.H{"error": "Agent returned error"})
+		return
+	}
+
+	var data metrics.SystemMetrics
+	if err := json.NewDecoder(resp.Body).Decode(&data); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to decode agent response"})
+		return
+	}
+
 	c.JSON(http.StatusOK, data)
-}
-
-func GetServers(c *gin.Context) {
-	all := metrics.GlobalStore.GetAll()
-	var servers []gin.H
-	for id, m := range all {
-		servers = append(servers, gin.H{
-			"id":          id,
-			"hostname":    m.HostInfo.Hostname,
-			"platform":    m.HostInfo.Platform,
-			"last_update": m.LastUpdate,
-		})
-	}
-	c.JSON(http.StatusOK, servers)
-}
-
-func IngestMetrics(c *gin.Context) {
-	var m metrics.SystemMetrics
-	if err := c.BindJSON(&m); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
-	
-	// Determine Server ID (prefer HostID, fallback to Hostname)
-	serverID := m.HostInfo.Hostname
-	if m.HostInfo.HostID != "" {
-		serverID = m.HostInfo.HostID
-	}
-	
-	metrics.GlobalStore.Update(serverID, m)
-	c.Status(http.StatusOK)
-}
-
-func GetStatus(c *gin.Context) {
-	h, _ := host.Info()
-	c.JSON(http.StatusOK, gin.H{
-		"hostname":      h.Hostname,
-		"uptime":        h.Uptime,
-		"os":            h.OS,
-		"platform":      h.Platform,
-		"platform_ver":  h.PlatformVersion,
-		"kernel_ver":    h.KernelVersion,
-		"arch":          runtime.GOARCH,
-		"cpus":          runtime.NumCPU(),
-		"go_version":    runtime.Version(),
-	})
 }

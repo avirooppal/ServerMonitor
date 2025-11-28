@@ -1,63 +1,78 @@
 package main
 
 import (
-	"bytes"
-	"encoding/json"
-	"flag"
 	"log"
 	"net/http"
+	"os"
 	"time"
 
+	"github.com/gin-contrib/cors"
+	"github.com/gin-gonic/gin"
+	"github.com/user/server-moni/internal/auth"
+	"github.com/user/server-moni/internal/db"
 	"github.com/user/server-moni/internal/metrics"
 )
 
 func main() {
-	serverURL := flag.String("server", "http://localhost:8080", "URL of the central server")
-	apiKey := flag.String("key", "", "API Key for authentication")
-	interval := flag.Duration("interval", 2*time.Second, "Collection interval")
-	flag.Parse()
+	// Initialize DB (SQLite)
+	db.InitDB()
 
-	if *apiKey == "" {
-		log.Fatal("API Key is required. Use -key <your-api-key>")
+	// Initialize Auth (Generate API Key)
+	auth.InitAuth()
+
+	// Initialize Metric Store (In-Memory for now)
+	metrics.InitStore()
+
+	// Start Collector
+	go func() {
+		collector := metrics.NewCollector()
+		// Default interval 2s, can be env var
+		ticker := time.NewTicker(2 * time.Second)
+		for range ticker.C {
+			m := collector.Collect()
+			// Update "local" metrics
+			metrics.GlobalStore.Update("local", m)
+		}
+	}()
+
+	// Setup Web Server
+	r := gin.Default()
+
+	// CORS - Allow All (User will likely access from cloud dashboard domain)
+	r.Use(cors.New(cors.Config{
+		AllowOrigins:     []string{"*"}, // TODO: Restrict to user's dashboard domain in prod
+		AllowMethods:     []string{"GET", "OPTIONS"},
+		AllowHeaders:     []string{"Origin", "Content-Type", "Authorization"},
+		ExposeHeaders:    []string{"Content-Length"},
+		AllowCredentials: true,
+		MaxAge:           12 * time.Hour,
+	}))
+
+	// API Routes
+	api := r.Group("/api/v1")
+	
+	// Public check
+	api.GET("/ping", func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{"status": "ok"})
+	})
+
+	// Protected Metrics Endpoint
+	api.GET("/metrics", auth.AuthMiddleware(), func(c *gin.Context) {
+		data, ok := metrics.GlobalStore.Get("local")
+		if !ok {
+			c.JSON(http.StatusServiceUnavailable, gin.H{"error": "Collecting metrics..."})
+			return
+		}
+		c.JSON(http.StatusOK, data)
+	})
+
+	port := os.Getenv("API_PORT")
+	if port == "" {
+		port = "8080"
 	}
 
-	log.Printf("Starting Agent...")
-	log.Printf("Server: %s", *serverURL)
-	log.Printf("Interval: %v", *interval)
-
-	collector := metrics.NewCollector()
-	client := &http.Client{Timeout: 10 * time.Second}
-
-	ticker := time.NewTicker(*interval)
-	for range ticker.C {
-		// Collect
-		m := collector.Collect()
-
-		// Send
-		payload, err := json.Marshal(m)
-		if err != nil {
-			log.Printf("Error marshaling metrics: %v", err)
-			continue
-		}
-
-		req, err := http.NewRequest("POST", *serverURL+"/api/v1/ingest", bytes.NewBuffer(payload))
-		if err != nil {
-			log.Printf("Error creating request: %v", err)
-			continue
-		}
-
-		req.Header.Set("Content-Type", "application/json")
-		req.Header.Set("Authorization", "Bearer "+*apiKey)
-
-		resp, err := client.Do(req)
-		if err != nil {
-			log.Printf("Error sending metrics: %v", err)
-			continue
-		}
-		
-		if resp.StatusCode != http.StatusOK {
-			log.Printf("Server returned error: %s", resp.Status)
-		}
-		resp.Body.Close()
+	log.Printf("Agent running on port %s", port)
+	if err := r.Run(":" + port); err != nil {
+		log.Fatal(err)
 	}
 }
