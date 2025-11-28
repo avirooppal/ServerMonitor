@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Save, Shield, Server, Key, Plus, Trash2, ExternalLink, Eye, EyeOff } from 'lucide-react';
+import { Save, Server, Key, Plus, Trash2, ExternalLink, Eye, EyeOff } from 'lucide-react';
 import { setApiKey as saveApiKey, getApiKey, fetchSystems, addSystem, deleteSystem, type System } from '../../utils/api';
 
 export const SettingsSection: React.FC = () => {
