@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { Save, Shield, Server, Key, Plus, Trash2, ExternalLink } from 'lucide-react';
+import { Save, Shield, Server, Key, Plus, Trash2, ExternalLink, Eye, EyeOff } from 'lucide-react';
 import { setApiKey as saveApiKey, getApiKey, fetchSystems, addSystem, deleteSystem, type System } from '../../utils/api';
 
 export const SettingsSection: React.FC = () => {
     const [apiKey, setApiKey] = useState('');
+    const [showKey, setShowKey] = useState(false);
     const [saved, setSaved] = useState(false);
     const [systems, setSystems] = useState<System[]>([]);
     const [newSystem, setNewSystem] = useState({ name: '', url: '', apiKey: '' });
+    const [showNewSystemKey, setShowNewSystemKey] = useState(false);
     const [loading, setLoading] = useState(false);
 
     useEffect(() => {
@@ -25,7 +27,9 @@ export const SettingsSection: React.FC = () => {
     };
 
     const handleSaveKey = () => {
-        saveApiKey(apiKey);
+        const trimmedKey = apiKey.trim();
+        setApiKey(trimmedKey);
+        saveApiKey(trimmedKey);
         setSaved(true);
         setTimeout(() => setSaved(false), 2000);
     };
@@ -34,7 +38,7 @@ export const SettingsSection: React.FC = () => {
         if (!newSystem.name || !newSystem.url || !newSystem.apiKey) return;
         setLoading(true);
         try {
-            await addSystem(newSystem.name, newSystem.url, newSystem.apiKey);
+            await addSystem(newSystem.name.trim(), newSystem.url.trim(), newSystem.apiKey.trim());
             setNewSystem({ name: '', url: '', apiKey: '' });
             await loadSystems();
         } catch (e: any) {
@@ -73,15 +77,18 @@ export const SettingsSection: React.FC = () => {
                 <div className="flex space-x-4">
                     <div className="relative flex-1">
                         <input
-                            type="password"
+                            type={showKey ? "text" : "password"}
                             value={apiKey}
                             onChange={(e) => setApiKey(e.target.value)}
-                            className="w-full bg-gray-900/50 border border-gray-700 text-white rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition-all font-mono"
+                            className="w-full bg-gray-900/50 border border-gray-700 text-white rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition-all font-mono pr-10"
                             placeholder="Enter your Master API key..."
                         />
-                        <div className="absolute right-3 top-3 text-gray-500">
-                            <Shield size={20} />
-                        </div>
+                        <button
+                            onClick={() => setShowKey(!showKey)}
+                            className="absolute right-3 top-3 text-gray-500 hover:text-gray-300 transition-colors"
+                        >
+                            {showKey ? <EyeOff size={20} /> : <Eye size={20} />}
+                        </button>
                     </div>
                     <button
                         onClick={handleSaveKey}
@@ -127,13 +134,21 @@ export const SettingsSection: React.FC = () => {
                             onChange={(e) => setNewSystem({ ...newSystem, url: e.target.value })}
                             className="bg-black/30 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-purple-500"
                         />
-                        <input
-                            type="password"
-                            placeholder="Agent API Key"
-                            value={newSystem.apiKey}
-                            onChange={(e) => setNewSystem({ ...newSystem, apiKey: e.target.value })}
-                            className="bg-black/30 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-purple-500"
-                        />
+                        <div className="relative">
+                            <input
+                                type={showNewSystemKey ? "text" : "password"}
+                                placeholder="Agent API Key"
+                                value={newSystem.apiKey}
+                                onChange={(e) => setNewSystem({ ...newSystem, apiKey: e.target.value })}
+                                className="w-full bg-black/30 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-purple-500 pr-8"
+                            />
+                            <button
+                                onClick={() => setShowNewSystemKey(!showNewSystemKey)}
+                                className="absolute right-2 top-2 text-gray-500 hover:text-gray-300 transition-colors"
+                            >
+                                {showNewSystemKey ? <EyeOff size={16} /> : <Eye size={16} />}
+                            </button>
+                        </div>
                     </div>
                     <div className="mt-4 flex justify-end">
                         <button

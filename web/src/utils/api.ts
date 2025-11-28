@@ -17,7 +17,7 @@ export const client = axios.create({
 client.interceptors.request.use((config) => {
     const key = getApiKey();
     if (key) {
-        config.headers.Authorization = `Bearer ${key}`;
+        config.headers.Authorization = `Bearer ${key.trim()}`;
     }
     return config;
 });
