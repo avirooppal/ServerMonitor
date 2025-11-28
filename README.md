@@ -3,6 +3,8 @@
 ## 🎯 Business Model
 
 ### Open Source Agent (FREE)
+<img width="1914" height="874" alt="image" src="https://github.com/user-attachments/assets/2779b9a6-8ab2-407e-9a9a-f44ffc6afcbe" />
+
 The **metrics collection agent** is completely open source and free to use:
 - ✅ Collects Docker container metrics
 - ✅ Collects system metrics (CPU, RAM, Disk, Network)
@@ -66,8 +68,8 @@ The **dashboard and visualization** is a cloud-hosted SaaS service:
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/docker-metrics-agent
-cd docker-metrics-agent
+git clone https://github.com/avirooppal/ServerMonitor.git
+cd ServerMonitor
 
 # Start the agent with Docker Compose
 docker-compose -f docker-compose.yml up -d
