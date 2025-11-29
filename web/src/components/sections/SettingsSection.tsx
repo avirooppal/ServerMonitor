@@ -171,11 +171,11 @@ export const SettingsSection: React.FC = () => {
                     </p>
                     <div className="bg-black/30 p-3 rounded-lg border border-blue-500/10 flex items-center justify-between group">
                         <code className="font-mono text-xs text-blue-300 break-all select-all">
-                            curl -sL {window.location.origin}/get-key.sh | bash
+                            curl -sL https://raw.githubusercontent.com/avirooppal/ServerMonitor/main/web/public/get-key.sh | bash
                         </code>
                         <button
                             onClick={() => {
-                                navigator.clipboard.writeText(`curl -sL ${window.location.origin}/get-key.sh | bash`);
+                                navigator.clipboard.writeText(`curl -sL https://raw.githubusercontent.com/avirooppal/ServerMonitor/main/web/public/get-key.sh | bash`);
                                 alert('Command copied to clipboard!');
                             }}
                             className="ml-4 text-gray-500 hover:text-white transition-colors"
