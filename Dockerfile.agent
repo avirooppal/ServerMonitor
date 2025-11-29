@@ -1,4 +1,6 @@
-# Build Agent
+# ==========================================
+# Stage 1: Build Agent (Go)
+# ==========================================
 FROM golang:1.24-alpine AS builder
 WORKDIR /app
 COPY go.mod go.sum ./
@@ -6,11 +8,13 @@ RUN go mod download
 COPY . .
 RUN go build -o agent ./cmd/agent
 
-# Final Image
+# ==========================================
+# Stage 2: Final Production Image
+# ==========================================
 FROM alpine:latest
 WORKDIR /app
 COPY --from=builder /app/agent .
-# Create data directory
+# Create data directory for API key storage
 RUN mkdir -p data
 EXPOSE 8080
 CMD ["./agent"]

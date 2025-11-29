@@ -16,6 +16,19 @@ A modern, real-time server monitoring solution designed for SaaS deployments. Mo
 - **One-Click Installation**: Simple `curl | bash` script to deploy agents instantly.
 - **Docker Native**: Fully containerized for easy deployment.
 
+## 🏗️ Architecture
+
+```mermaid
+graph TD
+    User[User / Browser] -->|HTTPS| Dashboard[SaaS Dashboard]
+    Dashboard -->|Proxy Request| Agent1[Agent: DB Server]
+    Dashboard -->|Proxy Request| Agent2[Agent: Web Server]
+    Agent1 -->|Collects| Docker1[Docker Engine]
+    Agent2 -->|Collects| Docker2[Docker Engine]
+```
+
+> For detailed Docker build and publish instructions, see [DOCKER_GUIDE.md](DOCKER_GUIDE.md).
+
 ---
 
 ## 🚀 Quick Start (SaaS Deployment)

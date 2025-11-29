@@ -1,5 +1,5 @@
 {
-    "name": "Test Agent",
-    "url": "http://host.docker.internal:8081",
-    "api_key": "21d4d64a-eb99-4d30-875d-6baa6b47b2ff"
+    "name": "Test System",
+    "url": "http://agent:8080",
+    "api_key": "test-key"
 }
