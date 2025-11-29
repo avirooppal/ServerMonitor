@@ -16,6 +16,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.agent
+    image: avirooppal/linux-monitoring-agent:latest
     ports:
       - "8081:8080"
     volumes:
