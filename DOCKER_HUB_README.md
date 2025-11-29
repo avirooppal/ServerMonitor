@@ -18,7 +18,7 @@ curl -sL https://raw.githubusercontent.com/avirooppal/ServerMonitor/main/web/pub
 
 This script will:
 - ✅ Check for Docker
-- ⬇️ Pull this image (`avirooppal/server-moni-agent`)
+- ⬇️ Pull this image (`avirooppal/linux-monitoring-agent`)
 - 🏃‍♂️ Run the agent container
 - 🔑 Output your **API Key** and **Connection URL**
 
@@ -39,7 +39,7 @@ docker run -d \
   -v /var/run/docker.sock:/var/run/docker.sock \
   -v server-moni-data:/app/data \
   -e API_PORT=8080 \
-  avirooppal/server-moni-agent:latest
+  avirooppal/linux-monitoring-agent:latest
 ```
 
 *Note: `--network host` is recommended to allow the agent to accurately report host network metrics.*

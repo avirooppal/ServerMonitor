@@ -24,7 +24,7 @@ The agent image is a minimal Alpine-based image for metrics collection.
 
 ```bash
 # Build locally
-docker build -t avirooppal/server-moni-agent:latest -f Dockerfile.agent .
+docker build -t avirooppal/linux-monitoring-agent:latest -f Dockerfile.agent .
 ```
 
 ---
@@ -38,8 +38,8 @@ To make the **One-Click Installer** work for everyone, the Agent image must be h
 docker login
 
 # 2. Tag and Push the Agent
-docker tag avirooppal/server-moni-agent:latest avirooppal/server-moni-agent:latest
-docker push avirooppal/server-moni-agent:latest
+docker tag avirooppal/linux-monitoring-agent:latest avirooppal/linux-monitoring-agent:latest
+docker push avirooppal/linux-monitoring-agent:latest
 
 # 3. (Optional) Push the Dashboard
 docker tag avirooppal/server-moni:latest avirooppal/server-moni:latest
@@ -69,7 +69,7 @@ docker run -d \
   -v /var/run/docker.sock:/var/run/docker.sock \
   -v agent_data:/app/data \
   -e API_PORT=8080 \
-  avirooppal/server-moni-agent:latest
+  avirooppal/linux-monitoring-agent:latest
 ```
 *Note: `--network host` is recommended for the agent to accurately report host network metrics.*
 

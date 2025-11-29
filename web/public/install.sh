@@ -14,7 +14,7 @@ if ! command -v docker &> /dev/null; then
 fi
 
 # Pull Image
-IMAGE_NAME="avirooppal/server-moni-agent:latest"
+IMAGE_NAME="avirooppal/linux-monitoring-agent:latest"
 echo "Pulling latest agent image: $IMAGE_NAME..."
 docker pull $IMAGE_NAME
 
