@@ -234,7 +234,7 @@ func (c *Collector) Collect() SystemMetrics {
 				}
 
 				containerInfos = append(containerInfos, ContainerInfo{
-					ID:          ctr.ID[:12],
+					ID:          ctr.ID,
 					Name:        name,
 					Image:       ctr.Image,
 					State:       ctr.State,
@@ -286,6 +286,7 @@ func (c *Collector) GetContainerLogs(containerID string, tail string) (string, e
 	}
 
 	if err != nil {
+		log.Printf("Error copying logs for container %s: %v", containerID, err)
 		return "", fmt.Errorf("failed to copy logs: %v", err)
 	}
 

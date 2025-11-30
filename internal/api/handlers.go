@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -42,7 +43,7 @@ func AddSystem(c *gin.Context) {
 		return
 	}
 
-	id, err := db.AddSystem(req.Name, req.URL, req.APIKey)
+	id, err := db.AddSystem(req.Name, req.URL, strings.TrimSpace(req.APIKey))
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to add system"})
 		return

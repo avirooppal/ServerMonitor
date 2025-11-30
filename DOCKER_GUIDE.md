@@ -9,6 +9,24 @@ The system consists of two main Docker images:
 1.  **Dashboard (`server-moni`)**: The central web interface and API server.
 2.  **Agent (`server-moni-agent`)**: The lightweight collector running on target servers.
 
+## 🚀 Quick Start: How to Run
+
+You have two main options to run this system:
+
+### Option A: Run from Source (Current Method)
+Best for development or if you don't have the images pushed to a registry.
+1.  Clone the repository.
+2.  Run `docker compose up --build`.
+3.  This runs both Dashboard and Agent on the **same server**.
+
+### Option B: Run from Docker Images (Production)
+Best for deploying the Agent to **multiple servers**.
+1.  **Dashboard**: Run on one central server.
+2.  **Agents**: Run on any number of servers you want to monitor.
+3.  Connect Agents to the Dashboard using the Dashboard URL.
+
+*(Note: To use Option B, you must first build and push the images to Docker Hub as described below.)*
+
 ## 📦 Building Images
 
 ### 1. Build the Dashboard

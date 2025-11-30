@@ -4,6 +4,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strconv"
 	"time"
 
 	"github.com/gin-contrib/cors"
@@ -109,6 +110,32 @@ func main() {
 		}
 		c.JSON(http.StatusOK, logs)
 	})
+
+	// Disk History
+	api.GET("/disk/history", auth.AuthMiddleware(), func(c *gin.Context) {
+		limitStr := c.DefaultQuery("limit", "30")
+		limit, _ := strconv.Atoi(limitStr)
+		history, err := db.GetDiskHistory(limit)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		c.JSON(http.StatusOK, history)
+	})
+
+	// Start Daily Disk Snapshot
+	go func() {
+		// Wait a bit for startup
+		time.Sleep(1 * time.Minute)
+		
+		ticker := time.NewTicker(24 * time.Hour)
+		// Run immediately once
+		snapshotDisk(collector)
+		
+		for range ticker.C {
+			snapshotDisk(collector)
+		}
+	}()
 
 	port := os.Getenv("API_PORT")
 	if port == "" {

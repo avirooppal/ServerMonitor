@@ -194,20 +194,17 @@ export const Dashboard: React.FC<DashboardProps> = ({ onLogout }) => {
                             <DockerSection
                                 metrics={metrics}
                                 systemId={Number(selectedSystemId)}
-                                apiKey={systems.find(s => s.id.toString() === selectedSystemId)?.api_key || ''}
                             />
                         )}
                         {activeTab === 'system' && <SystemSection metrics={metrics} />}
                         {activeTab === 'security' && selectedSystemId && systems.find(s => s.id.toString() === selectedSystemId) && (
                             <SecuritySection
                                 systemId={Number(selectedSystemId)}
-                                apiKey={systems.find(s => s.id.toString() === selectedSystemId)?.api_key || ''}
                             />
                         )}
                         {activeTab === 'disk-analysis' && selectedSystemId && systems.find(s => s.id.toString() === selectedSystemId) && (
                             <DiskAnalysisSection
                                 systemId={Number(selectedSystemId)}
-                                apiKey={systems.find(s => s.id.toString() === selectedSystemId)?.api_key || ''}
                             />
                         )}
                     </div>

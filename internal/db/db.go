@@ -47,6 +47,8 @@ func InitDB() {
 	if _, err := DB.Exec(createSystemsTable); err != nil {
 		log.Fatalf("Failed to create systems table: %v", err)
 	}
+
+	InitDiskHistoryTable()
 }
 
 func GetConfig(key string) (string, error) {
@@ -98,4 +100,50 @@ func GetSystem(id int) (*System, error) {
 func DeleteSystem(id int) error {
 	_, err := DB.Exec("DELETE FROM systems WHERE id = ?", id)
 	return err
+}
+
+// Disk History
+
+type DiskHistory struct {
+	ID          int64     `json:"id"`
+	Timestamp   time.Time `json:"timestamp"`
+	UsedPercent float64   `json:"used_percent"`
+	Total       uint64    `json:"total"`
+	Used        uint64    `json:"used"`
+}
+
+func InitDiskHistoryTable() {
+	createTable := `CREATE TABLE IF NOT EXISTS disk_history (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+		used_percent REAL,
+		total INTEGER,
+		used INTEGER
+	);`
+	if _, err := DB.Exec(createTable); err != nil {
+		log.Printf("Failed to create disk_history table: %v", err)
+	}
+}
+
+func AddDiskHistory(usedPercent float64, total, used uint64) error {
+	_, err := DB.Exec("INSERT INTO disk_history (used_percent, total, used) VALUES (?, ?, ?)", usedPercent, total, used)
+	return err
+}
+
+func GetDiskHistory(limit int) ([]DiskHistory, error) {
+	rows, err := DB.Query("SELECT id, timestamp, used_percent, total, used FROM disk_history ORDER BY timestamp DESC LIMIT ?", limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var history []DiskHistory
+	for rows.Next() {
+		var h DiskHistory
+		if err := rows.Scan(&h.ID, &h.Timestamp, &h.UsedPercent, &h.Total, &h.Used); err != nil {
+			return nil, err
+		}
+		history = append(history, h)
+	}
+	return history, nil
 }

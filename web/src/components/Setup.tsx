@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { setApiKey, verifyKey } from '../utils/api';
-import { Key } from 'lucide-react';
+import { Key, Copy } from 'lucide-react';
 
 interface SetupProps {
     onComplete: () => void;
@@ -59,8 +59,15 @@ export const Setup: React.FC<SetupProps> = ({ onComplete }) => {
                 </form>
                 <div className="mt-6 p-4 bg-black/30 rounded-lg border border-gray-700/50">
                     <p className="text-xs text-gray-400 mb-2 text-center">To get your API Key, run this in your server terminal:</p>
-                    <div className="bg-black/50 p-2 rounded border border-gray-700 text-center select-all cursor-text">
-                        <code className="text-xs font-mono text-green-400">type agent_data\api_key.txt</code>
+                    <div className="flex items-center gap-2 bg-black/50 p-2 rounded border border-gray-700">
+                        <code className="flex-1 text-xs font-mono text-green-400 text-center">type agent_data\api_key.txt</code>
+                        <button
+                            onClick={() => navigator.clipboard.writeText('type agent_data\\api_key.txt')}
+                            className="p-1.5 hover:bg-gray-700 rounded text-gray-400 hover:text-white transition-colors"
+                            title="Copy command"
+                        >
+                            <Copy size={14} />
+                        </button>
                     </div>
                 </div>
             </div>

@@ -2,14 +2,14 @@ import React, { useState } from 'react';
 import type { SystemMetrics } from '../../types';
 import { Box, Play, Square, FileText, X, Loader } from 'lucide-react';
 import clsx from 'clsx';
+import { client } from '../../utils/api';
 
 interface DockerSectionProps {
     metrics: SystemMetrics;
     systemId: number;
-    apiKey: string;
 }
 
-export const DockerSection: React.FC<DockerSectionProps> = ({ metrics, systemId, apiKey }) => {
+export const DockerSection: React.FC<DockerSectionProps> = ({ metrics, systemId }) => {
     const containers = metrics.containers || [];
     const [selectedContainer, setSelectedContainer] = useState<string | null>(null);
     const [logs, setLogs] = useState<string>('');
@@ -28,18 +28,18 @@ export const DockerSection: React.FC<DockerSectionProps> = ({ metrics, systemId,
         setLoadingLogs(true);
         setLogs('');
         try {
-            const headers = { Authorization: `Bearer ${apiKey}` };
-            // Proxy request to get logs
-            const response = await fetch(`/api/v1/systems/${systemId}/proxy?path=/docker/containers/${containerId}/logs`, { headers });
-            if (response.ok) {
-                const text = await response.text();
-                setLogs(text);
-            } else {
-                setLogs('Failed to fetch logs.');
-            }
-        } catch (error) {
+            // Use client from api.ts which handles Dashboard Auth
+            const response = await client.get(`/systems/${systemId}/proxy`, {
+                params: {
+                    path: `/docker/containers/${containerId}/logs`
+                },
+                responseType: 'text' // Logs are text
+            });
+            setLogs(response.data);
+        } catch (error: any) {
             console.error("Failed to fetch logs", error);
-            setLogs('Error fetching logs.');
+            const msg = error.response?.data?.error || error.message || 'Unknown error';
+            setLogs(`Failed to fetch logs. ${msg}`);
         } finally {
             setLoadingLogs(false);
         }

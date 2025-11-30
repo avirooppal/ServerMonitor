@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Shield, AlertTriangle, Lock, Activity } from 'lucide-react';
+import { client } from '../../utils/api';
 
 interface Fail2BanStats {
     total_bans: number;
@@ -17,10 +18,9 @@ interface AuthLog {
 
 interface SecuritySectionProps {
     systemId: number;
-    apiKey: string;
 }
 
-const SecuritySection: React.FC<SecuritySectionProps> = ({ systemId, apiKey }) => {
+const SecuritySection: React.FC<SecuritySectionProps> = ({ systemId }) => {
     const [fail2ban, setFail2ban] = useState<Fail2BanStats | null>(null);
     const [authLogs, setAuthLogs] = useState<AuthLog[]>([]);
     const [loading, setLoading] = useState(true);
@@ -28,15 +28,17 @@ const SecuritySection: React.FC<SecuritySectionProps> = ({ systemId, apiKey }) =
     useEffect(() => {
         const fetchData = async () => {
             try {
-                const headers = { Authorization: `Bearer ${apiKey}` };
-
                 // Fetch Fail2Ban
-                const f2bResponse = await fetch(`/api/v1/systems/${systemId}/proxy?path=/security/fail2ban`, { headers });
-                if (f2bResponse.ok) setFail2ban(await f2bResponse.json());
+                const f2bResponse = await client.get(`/systems/${systemId}/proxy`, {
+                    params: { path: '/security/fail2ban' }
+                });
+                setFail2ban(f2bResponse.data);
 
                 // Fetch Auth Logs
-                const authResponse = await fetch(`/api/v1/systems/${systemId}/proxy?path=/security/logins`, { headers });
-                if (authResponse.ok) setAuthLogs(await authResponse.json());
+                const authResponse = await client.get(`/systems/${systemId}/proxy`, {
+                    params: { path: '/security/logins' }
+                });
+                setAuthLogs(authResponse.data);
 
             } catch (error) {
                 console.error("Failed to fetch security stats", error);
@@ -46,7 +48,7 @@ const SecuritySection: React.FC<SecuritySectionProps> = ({ systemId, apiKey }) =
         };
 
         fetchData();
-    }, [systemId, apiKey]);
+    }, [systemId]);
 
     if (loading) return <div className="p-4 text-gray-400">Loading security stats...</div>;
 
