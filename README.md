@@ -1,8 +1,9 @@
-# Server Monitor - SaaS Ready 🚀
+# Server Monitor - SaaS Ready 
 
 A modern, real-time server monitoring solution designed for SaaS deployments. Monitor multiple servers from a single, centralized dashboard with a lightweight, secure agent architecture.
 
-![Dashboard Preview](https://github.com/user-attachments/assets/2779b9a6-8ab2-407e-9a9a-f44ffc6afcbe)
+<img width="1912" height="863" alt="image" src="https://github.com/user-attachments/assets/124fe69f-820e-46a2-ba8d-577fa40cb9c5" />
+
 
 ## ✨ Features
 
