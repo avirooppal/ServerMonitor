@@ -97,6 +97,21 @@ func (c *Collector) Collect() SystemMetrics {
 	ioCounters, _ := disk.IOCounters()
 
 	for _, p := range parts {
+		// Filter out Docker bind mounts and irrelevant system paths
+		if p.Mountpoint == "/etc/hostname" || 
+		   p.Mountpoint == "/etc/hosts" || 
+		   p.Mountpoint == "/etc/resolv.conf" ||
+		   strings.HasPrefix(p.Mountpoint, "/dev") ||
+		   strings.HasPrefix(p.Mountpoint, "/sys") ||
+		   strings.HasPrefix(p.Mountpoint, "/proc") ||
+		   strings.HasPrefix(p.Mountpoint, "/run") ||
+		   p.Fstype == "tmpfs" ||
+		   p.Fstype == "devtmpfs" ||
+		   p.Fstype == "squashfs" ||
+		   p.Fstype == "overlay" {
+			continue
+		}
+
 		u, err := disk.Usage(p.Mountpoint)
 		if err != nil {
 			continue
