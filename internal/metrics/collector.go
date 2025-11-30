@@ -92,11 +92,13 @@ func (c *Collector) Collect() SystemMetrics {
 	metrics.Swap = s
 
 	// Disks (Usage & I/O)
-	parts, _ := disk.Partitions(false)
+	parts, _ := disk.Partitions(true)
 	var disks []DiskInfo
 	ioCounters, _ := disk.IOCounters()
 
+	log.Printf("DEBUG: Found %d partitions", len(parts))
 	for _, p := range parts {
+		log.Printf("DEBUG: Checking partition: %s (%s)", p.Mountpoint, p.Fstype)
 		// Filter out Docker bind mounts and irrelevant system paths
 		if p.Mountpoint == "/etc/hostname" || 
 		   p.Mountpoint == "/etc/hosts" || 
@@ -108,12 +110,13 @@ func (c *Collector) Collect() SystemMetrics {
 		   p.Fstype == "tmpfs" ||
 		   p.Fstype == "devtmpfs" ||
 		   p.Fstype == "squashfs" ||
-		   p.Fstype == "overlay" {
+		   (p.Fstype == "overlay" && p.Mountpoint != "/") {
 			continue
 		}
 
 		u, err := disk.Usage(p.Mountpoint)
 		if err != nil {
+			log.Printf("DEBUG: Failed to get usage for %s: %v", p.Mountpoint, err)
 			continue
 		}
 
@@ -141,6 +144,7 @@ func (c *Collector) Collect() SystemMetrics {
 			ReadRate:    rRate,
 			WriteRate:   wRate,
 		}
+		log.Printf("DEBUG: Added partition: %s", p.Mountpoint)
 		disks = append(disks, dInfo)
 	}
 	metrics.Disks = disks

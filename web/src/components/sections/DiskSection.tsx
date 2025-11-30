@@ -18,7 +18,7 @@ export const DiskSection: React.FC<DiskSectionProps> = ({ metrics }) => {
     return (
         <div className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {metrics.disks.map((disk, index) => (
+                {metrics.disks?.map((disk, index) => (
                     <div key={index} className="bg-gray-900 p-6 rounded-xl border border-gray-800 shadow-sm">
                         <h3 className="text-lg font-semibold mb-2 text-gray-200 truncate" title={disk.path}>{disk.path}</h3>
                         <div className="text-sm text-gray-500 mb-4">Total: {formatBytes(disk.total)}</div>

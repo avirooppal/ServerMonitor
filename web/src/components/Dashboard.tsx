@@ -11,7 +11,7 @@ import { NetworkSection } from './sections/NetworkSection';
 import { ProcessSection } from './sections/ProcessSection';
 import { DockerSection } from './sections/DockerSection';
 import { SettingsSection } from './sections/SettingsSection';
-import { SystemSection } from './sections/SystemSection';
+import { ServicesSection } from './sections/ServicesSection';
 import SecuritySection from './sections/SecuritySection';
 import DiskAnalysisSection from './sections/DiskAnalysisSection';
 
@@ -26,7 +26,8 @@ const TABS = [
     { id: 'network', label: 'Network', icon: Activity },
     { id: 'disk', label: 'Disks', icon: HardDrive },
     { id: 'processes', label: 'Processes', icon: Server },
-    { id: 'docker', label: 'Docker', icon: Box },
+    { id: 'docker', label: 'Containers', icon: Box },
+    // { id: 'services', label: 'Services', icon: Activity }, // Hidden, accessed via Alerts card
     { id: 'security', label: 'Security', icon: Shield },
     { id: 'disk-analysis', label: 'Disk Usage', icon: HardDrive },
     { id: 'settings', label: 'Settings', icon: Settings },
@@ -94,13 +95,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ onLogout }) => {
             {/* Top Navigation Bar */}
             <header className="bg-surface/80 backdrop-blur-md border-b border-white/5 z-20">
                 <div className="px-6 py-3 flex items-center justify-between">
-                    <div className="flex items-center space-x-3">
-                        <div className="bg-primary/10 p-2 rounded-lg border border-primary/20 shadow-glow-blue">
-                            <Activity className="text-primary w-5 h-5" />
-                        </div>
-                        <h1 className="text-lg font-bold tracking-wide text-white font-sans">SERVER MONI</h1>
-                    </div>
-
                     <div className="flex items-center space-x-4">
                         {/* Server Selector */}
                         <div className="flex items-center space-x-2 bg-background/50 rounded-lg px-3 py-1.5 border border-white/5">
@@ -132,6 +126,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ onLogout }) => {
                                 <option value={10000}>10s</option>
                             </select>
                         </div>
+                    </div>
+
+                    <div className="flex items-center space-x-4">
                         <button onClick={onLogout} className="text-gray-400 hover:text-white transition-colors p-2 hover:bg-white/5 rounded-lg">
                             <LogOut size={18} />
                         </button>
@@ -139,7 +136,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onLogout }) => {
                 </div>
 
                 {/* Tabs */}
-                <div className="px-6 flex items-center space-x-2 overflow-x-auto no-scrollbar">
+                <div className="px-6 pb-3 flex items-center space-x-2 overflow-x-auto no-scrollbar">
                     {TABS.map((tab) => {
                         const isActive = activeTab === tab.id;
                         return (
@@ -147,13 +144,13 @@ export const Dashboard: React.FC<DashboardProps> = ({ onLogout }) => {
                                 key={tab.id}
                                 onClick={() => setActiveTab(tab.id)}
                                 className={clsx(
-                                    "px-4 py-3 text-sm font-medium border-b-2 transition-all duration-200 whitespace-nowrap flex items-center space-x-2",
+                                    "px-4 py-2 text-sm font-medium rounded-full transition-all duration-200 whitespace-nowrap flex items-center space-x-2",
                                     isActive
-                                        ? "border-primary text-primary bg-primary/5"
-                                        : "border-transparent text-gray-400 hover:text-gray-200 hover:bg-white/5"
+                                        ? "bg-primary text-white shadow-lg shadow-primary/25"
+                                        : "bg-surface hover:bg-white/5 text-gray-400 hover:text-gray-200 border border-white/5"
                                 )}
                             >
-                                <tab.icon size={16} />
+                                <tab.icon size={14} />
                                 <span>{tab.label}</span>
                             </button>
                         );
@@ -171,6 +168,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ onLogout }) => {
 
                 {activeTab === 'settings' ? (
                     <SettingsSection />
+                ) : activeTab === 'services' ? (
+                    <div className="max-w-7xl mx-auto pb-10">
+                        <ServicesSection systems={systems} />
+                    </div>
                 ) : !selectedSystemId ? (
                     <div className="flex flex-col items-center justify-center h-full text-gray-500 space-y-4">
                         <Server size={48} className="text-gray-600" />
@@ -184,7 +185,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onLogout }) => {
                     </div>
                 ) : metrics ? (
                     <div className="max-w-7xl mx-auto space-y-6 pb-10">
-                        {activeTab === 'overview' && <OverviewSection metrics={metrics} />}
+                        {activeTab === 'overview' && <OverviewSection metrics={metrics} onNavigate={setActiveTab} />}
                         {activeTab === 'cpu' && <CpuSection metrics={metrics} />}
                         {activeTab === 'memory' && <MemorySection metrics={metrics} />}
                         {activeTab === 'disk' && <DiskSection metrics={metrics} />}
@@ -196,7 +197,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ onLogout }) => {
                                 systemId={Number(selectedSystemId)}
                             />
                         )}
-                        {activeTab === 'system' && <SystemSection metrics={metrics} />}
                         {activeTab === 'security' && selectedSystemId && systems.find(s => s.id.toString() === selectedSystemId) && (
                             <SecuritySection
                                 systemId={Number(selectedSystemId)}
