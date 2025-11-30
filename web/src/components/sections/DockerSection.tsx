@@ -1,14 +1,19 @@
-import React from 'react';
+import React, { useState } from 'react';
 import type { SystemMetrics } from '../../types';
-import { Box, Play, Square } from 'lucide-react';
+import { Box, Play, Square, FileText, X, Loader } from 'lucide-react';
 import clsx from 'clsx';
 
 interface DockerSectionProps {
     metrics: SystemMetrics;
+    systemId: number;
+    apiKey: string;
 }
 
-export const DockerSection: React.FC<DockerSectionProps> = ({ metrics }) => {
+export const DockerSection: React.FC<DockerSectionProps> = ({ metrics, systemId, apiKey }) => {
     const containers = metrics.containers || [];
+    const [selectedContainer, setSelectedContainer] = useState<string | null>(null);
+    const [logs, setLogs] = useState<string>('');
+    const [loadingLogs, setLoadingLogs] = useState(false);
 
     const formatBytes = (bytes: number) => {
         if (bytes === 0) return '0 B';
@@ -18,8 +23,30 @@ export const DockerSection: React.FC<DockerSectionProps> = ({ metrics }) => {
         return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
     };
 
+    const fetchLogs = async (containerId: string) => {
+        setSelectedContainer(containerId);
+        setLoadingLogs(true);
+        setLogs('');
+        try {
+            const headers = { Authorization: `Bearer ${apiKey}` };
+            // Proxy request to get logs
+            const response = await fetch(`/api/v1/systems/${systemId}/proxy?path=/docker/containers/${containerId}/logs`, { headers });
+            if (response.ok) {
+                const text = await response.text();
+                setLogs(text);
+            } else {
+                setLogs('Failed to fetch logs.');
+            }
+        } catch (error) {
+            console.error("Failed to fetch logs", error);
+            setLogs('Error fetching logs.');
+        } finally {
+            setLoadingLogs(false);
+        }
+    };
+
     return (
-        <div className="space-y-6">
+        <div className="space-y-6 relative">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div className="bg-[#1e293b]/50 backdrop-blur-sm p-6 rounded-2xl border border-gray-800/50 shadow-xl">
                     <div className="flex items-center space-x-3 mb-2">
@@ -67,7 +94,7 @@ export const DockerSection: React.FC<DockerSectionProps> = ({ metrics }) => {
                                 <th className="px-6 py-4 font-medium">State</th>
                                 <th className="px-6 py-4 font-medium">CPU %</th>
                                 <th className="px-6 py-4 font-medium">Mem Usage</th>
-                                <th className="px-6 py-4 font-medium">Status</th>
+                                <th className="px-6 py-4 font-medium">Actions</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-800/50">
@@ -76,7 +103,7 @@ export const DockerSection: React.FC<DockerSectionProps> = ({ metrics }) => {
                                     <td className="px-6 py-4">
                                         <div className="flex flex-col">
                                             <span className="font-medium text-white">{container.name}</span>
-                                            <span className="text-xs text-gray-500 font-mono">{container.id}</span>
+                                            <span className="text-xs text-gray-500 font-mono">{container.id.substring(0, 12)}</span>
                                         </div>
                                     </td>
                                     <td className="px-6 py-4 text-gray-300 font-mono text-sm">{container.image}</td>
@@ -107,7 +134,15 @@ export const DockerSection: React.FC<DockerSectionProps> = ({ metrics }) => {
                                             </span>
                                         </div>
                                     </td>
-                                    <td className="px-6 py-4 text-gray-400 text-sm">{container.status}</td>
+                                    <td className="px-6 py-4">
+                                        <button
+                                            onClick={() => fetchLogs(container.id)}
+                                            className="text-blue-400 hover:text-blue-300 transition-colors p-2 hover:bg-blue-500/10 rounded-lg"
+                                            title="View Logs"
+                                        >
+                                            <FileText size={18} />
+                                        </button>
+                                    </td>
                                 </tr>
                             ))}
                             {containers.length === 0 && (
@@ -121,6 +156,35 @@ export const DockerSection: React.FC<DockerSectionProps> = ({ metrics }) => {
                     </table>
                 </div>
             </div>
+
+            {/* Logs Modal */}
+            {selectedContainer && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+                    <div className="bg-[#1e293b] w-full max-w-4xl rounded-2xl shadow-2xl border border-gray-700 flex flex-col max-h-[80vh]">
+                        <div className="flex items-center justify-between p-4 border-b border-gray-700">
+                            <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+                                <FileText className="w-5 h-5 text-blue-400" />
+                                Container Logs
+                            </h3>
+                            <button
+                                onClick={() => setSelectedContainer(null)}
+                                className="text-gray-400 hover:text-white transition-colors"
+                            >
+                                <X size={20} />
+                            </button>
+                        </div>
+                        <div className="p-4 flex-1 overflow-auto bg-black/30 font-mono text-sm text-gray-300 whitespace-pre-wrap">
+                            {loadingLogs ? (
+                                <div className="flex items-center justify-center h-40">
+                                    <Loader className="w-8 h-8 text-blue-400 animate-spin" />
+                                </div>
+                            ) : (
+                                logs || "No logs available."
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

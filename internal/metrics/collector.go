@@ -5,7 +5,10 @@ import (
 	"encoding/json"
 	"log"
 	"strings"
+	"sync"
 	"time"
+	"os"
+	"io"
 
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/client"
@@ -16,6 +19,9 @@ import (
 	"github.com/shirou/gopsutil/v3/mem"
 	"github.com/shirou/gopsutil/v3/net"
 	"github.com/shirou/gopsutil/v3/process"
+	"bytes"
+	"fmt"
+	"github.com/docker/docker/pkg/stdcopy"
 )
 
 type Collector struct {
@@ -23,6 +29,10 @@ type Collector struct {
 	lastDiskIO   map[string]disk.IOCountersStat
 	lastTime     time.Time
 	dockerClient *client.Client
+
+	// Caching for heavy operations
+	diskUsageMutex  sync.RWMutex
+	cachedDiskUsage []FolderSize
 }
 
 func NewCollector() *Collector {
@@ -243,4 +253,80 @@ func (c *Collector) Collect() SystemMetrics {
 	metrics.LastUpdate = now
 
 	return metrics
+}
+
+func (c *Collector) GetContainerLogs(containerID string, tail string) (string, error) {
+	if c.dockerClient == nil {
+		return "", fmt.Errorf("docker client not available")
+	}
+
+	// Inspect to check if TTY is enabled
+	inspect, err := c.dockerClient.ContainerInspect(context.Background(), containerID)
+	if err != nil {
+		return "", fmt.Errorf("failed to inspect container: %v", err)
+	}
+
+	opts := container.LogsOptions{
+		ShowStdout: true,
+		ShowStderr: true,
+		Tail:       tail,
+	}
+
+	out, err := c.dockerClient.ContainerLogs(context.Background(), containerID, opts)
+	if err != nil {
+		return "", err
+	}
+	defer out.Close()
+
+	var buf bytes.Buffer
+	if inspect.Config.Tty {
+		_, err = io.Copy(&buf, out)
+	} else {
+		_, err = stdcopy.StdCopy(&buf, &buf, out)
+	}
+
+	if err != nil {
+		return "", fmt.Errorf("failed to copy logs: %v", err)
+	}
+
+	return buf.String(), nil
+}
+
+// StartBackgroundTasks starts periodic heavy tasks
+func (c *Collector) StartBackgroundTasks() {
+	go func() {
+		// Initial run
+		c.updateDiskUsage()
+
+		// Run every 15 minutes
+		ticker := time.NewTicker(15 * time.Minute)
+		for range ticker.C {
+			c.updateDiskUsage()
+		}
+	}()
+}
+
+func (c *Collector) updateDiskUsage() {
+	// Default to root, or env var
+	path := "/" 
+	if p := os.Getenv("DISK_USAGE_PATH"); p != "" {
+		path = p
+	}
+
+	usage, err := c.GetDiskUsage(path)
+	if err != nil {
+		log.Printf("Error updating disk usage: %v", err)
+		return
+	}
+
+	c.diskUsageMutex.Lock()
+	c.cachedDiskUsage = usage
+	c.diskUsageMutex.Unlock()
+}
+
+// GetCachedDiskUsage returns the cached disk usage data
+func (c *Collector) GetCachedDiskUsage() []FolderSize {
+	c.diskUsageMutex.RLock()
+	defer c.diskUsageMutex.RUnlock()
+	return c.cachedDiskUsage
 }

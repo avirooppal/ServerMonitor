@@ -3,6 +3,7 @@ package api
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"strconv"
 	"time"
@@ -26,6 +27,7 @@ func RegisterRoutes(r *gin.Engine) {
 		authenticated.GET("/systems", GetSystems)
 		authenticated.POST("/systems", AddSystem)
 		authenticated.DELETE("/systems/:id", DeleteSystem)
+		authenticated.GET("/systems/:id/proxy", ProxyRequest)
 	}
 }
 
@@ -120,4 +122,63 @@ func GetMetrics(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, data)
+}
+
+func ProxyRequest(c *gin.Context) {
+	systemIDStr := c.Param("id")
+	path := c.Query("path")
+	if path == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "path is required"})
+		return
+	}
+
+	systemID, err := strconv.Atoi(systemIDStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid system_id"})
+		return
+	}
+
+	system, err := db.GetSystem(systemID)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "System not found"})
+		return
+	}
+
+	// Proxy to Agent
+	client := &http.Client{Timeout: 10 * time.Second}
+	targetURL := system.URL + "/api/v1" + path
+	
+	req, err := http.NewRequest("GET", targetURL, nil)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create request"})
+		return
+	}
+	req.Header.Set("Authorization", "Bearer "+system.APIKey)
+
+	// Copy query params
+	q := req.URL.Query()
+	for k, v := range c.Request.URL.Query() {
+		if k != "path" {
+			for _, val := range v {
+				q.Add(k, val)
+			}
+		}
+	}
+	req.URL.RawQuery = q.Encode()
+
+	resp, err := client.Do(req)
+	if err != nil {
+		c.JSON(http.StatusBadGateway, gin.H{"error": fmt.Sprintf("Failed to connect to agent: %v", err)})
+		return
+	}
+	defer resp.Body.Close()
+
+	// Stream response back
+	c.Status(resp.StatusCode)
+	for k, v := range resp.Header {
+		for _, val := range v {
+			c.Writer.Header().Add(k, val)
+		}
+	}
+	_, _ = io.Copy(c.Writer, resp.Body)
 }

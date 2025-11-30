@@ -69,3 +69,22 @@ type ContainerInfo struct {
 	MemoryUsage uint64  `json:"memory_usage"`
 	MemoryLimit uint64  `json:"memory_limit"`
 }
+
+type Fail2BanStats struct {
+	TotalBans int            `json:"total_bans"`
+	BansByIP  map[string]int `json:"bans_by_ip"`
+	Jails     []string       `json:"jails"`
+}
+
+type FolderSize struct {
+	Path string `json:"path"`
+	Size uint64 `json:"size"`
+}
+
+type AuthLog struct {
+	Time    time.Time `json:"time"`
+	User    string    `json:"user"`
+	IP      string    `json:"ip"`
+	Message string    `json:"message"`
+	Success bool      `json:"success"`
+}

@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { fetchMetrics, fetchSystems, type System } from '../utils/api';
 import type { SystemMetrics } from '../types';
-import { Activity, Cpu, HardDrive, Server, Layers, Settings, LogOut, LayoutDashboard, Box } from 'lucide-react';
+import { Activity, Cpu, HardDrive, Server, Layers, Settings, LogOut, LayoutDashboard, Box, Shield } from 'lucide-react';
 import clsx from 'clsx';
 import { OverviewSection } from './sections/OverviewSection';
 import { CpuSection } from './sections/CpuSection';
@@ -12,6 +12,8 @@ import { ProcessSection } from './sections/ProcessSection';
 import { DockerSection } from './sections/DockerSection';
 import { SettingsSection } from './sections/SettingsSection';
 import { SystemSection } from './sections/SystemSection';
+import SecuritySection from './sections/SecuritySection';
+import DiskAnalysisSection from './sections/DiskAnalysisSection';
 
 interface DashboardProps {
     onLogout: () => void;
@@ -25,6 +27,8 @@ const TABS = [
     { id: 'disk', label: 'Disks', icon: HardDrive },
     { id: 'processes', label: 'Processes', icon: Server },
     { id: 'docker', label: 'Docker', icon: Box },
+    { id: 'security', label: 'Security', icon: Shield },
+    { id: 'disk-analysis', label: 'Disk Usage', icon: HardDrive },
     { id: 'settings', label: 'Settings', icon: Settings },
 ];
 
@@ -186,8 +190,26 @@ export const Dashboard: React.FC<DashboardProps> = ({ onLogout }) => {
                         {activeTab === 'disk' && <DiskSection metrics={metrics} />}
                         {activeTab === 'network' && <NetworkSection metrics={metrics} />}
                         {activeTab === 'processes' && <ProcessSection metrics={metrics} />}
-                        {activeTab === 'docker' && <DockerSection metrics={metrics} />}
+                        {activeTab === 'docker' && selectedSystemId && systems.find(s => s.id.toString() === selectedSystemId) && (
+                            <DockerSection
+                                metrics={metrics}
+                                systemId={Number(selectedSystemId)}
+                                apiKey={systems.find(s => s.id.toString() === selectedSystemId)?.api_key || ''}
+                            />
+                        )}
                         {activeTab === 'system' && <SystemSection metrics={metrics} />}
+                        {activeTab === 'security' && selectedSystemId && systems.find(s => s.id.toString() === selectedSystemId) && (
+                            <SecuritySection
+                                systemId={Number(selectedSystemId)}
+                                apiKey={systems.find(s => s.id.toString() === selectedSystemId)?.api_key || ''}
+                            />
+                        )}
+                        {activeTab === 'disk-analysis' && selectedSystemId && systems.find(s => s.id.toString() === selectedSystemId) && (
+                            <DiskAnalysisSection
+                                systemId={Number(selectedSystemId)}
+                                apiKey={systems.find(s => s.id.toString() === selectedSystemId)?.api_key || ''}
+                            />
+                        )}
                     </div>
                 ) : (
                     <div className="flex flex-col items-center justify-center h-full text-gray-500 space-y-4">
