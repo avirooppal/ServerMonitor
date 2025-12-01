@@ -11,7 +11,7 @@
 
 ---
 
-## ✨ Features
+## Features
 
 - **Real-Time Metrics**: Monitor CPU, RAM, Disk, and Network usage with live updates.
 - **Multi-Server Support**: Manage unlimited servers from a single dashboard.
@@ -25,7 +25,7 @@
 
 ---
 
-## 🚀 Quick Start
+## Quick Start
 
 Get your monitoring dashboard up and running in minutes.
 
@@ -69,7 +69,7 @@ To monitor a server (including the one hosting the dashboard), you need to insta
 
 ---
 
-## 🏗️ Architecture
+## Architecture
 
 The system consists of a central Dashboard (Server) and multiple Agents (Clients).
 
@@ -106,7 +106,7 @@ To run the project locally for development:
 
 ---
 
-## 🔧 Configuration
+## Configuration
 
 ### Environment Variables
 
@@ -118,7 +118,7 @@ To run the project locally for development:
 
 ---
 
-## 🤝 Contributing
+## Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.
 
