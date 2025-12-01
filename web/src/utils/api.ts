@@ -71,11 +71,11 @@ export const getAuthMode = async () => {
     return response.data;
 };
 
-export const register = async (email, password) => {
+export const register = async (email: string, password: string) => {
     await client.post('/auth/register', { email, password });
 };
 
-export const login = async (email, password) => {
+export const login = async (email: string, password: string) => {
     const response = await client.post('/auth/login', { email, password });
     if (response.data.token) {
         setApiKey(response.data.token);
@@ -83,7 +83,7 @@ export const login = async (email, password) => {
     return response.data;
 };
 
-export const githubLogin = async (code) => {
+export const githubLogin = async (code: string) => {
     const response = await client.post('/auth/github', { code });
     if (response.data.token) {
         setApiKey(response.data.token);

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { register } from '../utils/api';
-import { Mail, Lock, ArrowRight, AlertCircle, UserPlus } from 'lucide-react';
+import { Mail, Lock, AlertCircle, UserPlus } from 'lucide-react';
 
 interface RegisterProps {
     onRegisterSuccess: () => void;
