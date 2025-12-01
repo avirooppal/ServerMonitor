@@ -167,16 +167,16 @@ export const SettingsSection: React.FC = () => {
                         <Server size={16} className="mr-2" /> Easy Setup Script
                     </h3>
                     <p className="text-gray-400 text-xs mb-3">
-                        Run this command on your agent server to instantly get the URL and API Key:
+                        Run this command on your agent server to install and link the agent:
                     </p>
                     <div className="bg-black/30 p-3 rounded-lg border border-blue-500/10 flex items-center justify-between group">
                         <code className="font-mono text-xs text-blue-300 break-all select-all">
-                            curl -sL https://raw.githubusercontent.com/avirooppal/ServerMonitor/main/web/public/get-key.sh | bash
+                            wget -qO- {window.location.origin}/setup.sh | sudo bash -s -- {window.location.origin} &lt;API_TOKEN&gt;
                         </code>
                         <button
                             onClick={() => {
-                                navigator.clipboard.writeText(`curl -sL https://raw.githubusercontent.com/avirooppal/ServerMonitor/main/web/public/get-key.sh | bash`);
-                                alert('Command copied to clipboard!');
+                                navigator.clipboard.writeText(`wget -qO- ${window.location.origin}/setup.sh | sudo bash -s -- ${window.location.origin} <API_TOKEN>`);
+                                alert('Command copied to clipboard! Replace <API_TOKEN> with your agent token.');
                             }}
                             className="ml-4 text-gray-500 hover:text-white transition-colors"
                             title="Copy to clipboard"
@@ -184,6 +184,9 @@ export const SettingsSection: React.FC = () => {
                             <Save className="w-4 h-4" />
                         </button>
                     </div>
+                    <p className="text-gray-500 text-[10px] mt-2">
+                        * Replace <code>&lt;API_TOKEN&gt;</code> with the unique token for your agent.
+                    </p>
                 </div>
 
                 {/* Systems List */}

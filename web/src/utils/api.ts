@@ -65,3 +65,28 @@ export const verifyKey = async (key: string) => {
     await testClient.post('/verify-key');
     return true;
 };
+
+export const getAuthMode = async () => {
+    const response = await client.get('/config/auth-mode');
+    return response.data;
+};
+
+export const register = async (email, password) => {
+    await client.post('/auth/register', { email, password });
+};
+
+export const login = async (email, password) => {
+    const response = await client.post('/auth/login', { email, password });
+    if (response.data.token) {
+        setApiKey(response.data.token);
+    }
+    return response.data;
+};
+
+export const githubLogin = async (code) => {
+    const response = await client.post('/auth/github', { code });
+    if (response.data.token) {
+        setApiKey(response.data.token);
+    }
+    return response.data;
+};

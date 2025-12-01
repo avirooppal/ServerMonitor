@@ -18,6 +18,13 @@ import (
 func RegisterRoutes(r *gin.Engine) {
 	api := r.Group("/api/v1")
 	
+	// Public Routes
+	api.GET("/config/auth-mode", GetAuthMode)
+	api.POST("/auth/register", Register)
+	api.POST("/auth/login", Login)
+	api.POST("/auth/github", GitHubLogin)
+
+	// Protected Routes
 	authenticated := api.Group("/")
 	authenticated.Use(auth.AuthMiddleware())
 	{
@@ -32,7 +39,80 @@ func RegisterRoutes(r *gin.Engine) {
 	}
 }
 
+// --- Auth Handlers ---
+
+func GetAuthMode(c *gin.Context) {
+	c.JSON(http.StatusOK, gin.H{
+		"saas_mode": auth.SaasMode,
+	})
+}
+
+func Register(c *gin.Context) {
+	var req struct {
+		Email    string `json:"email"`
+		Password string `json:"password"`
+	}
+	if err := c.BindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	if !auth.SaasMode {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Registration disabled in Self-Hosted mode"})
+		return
+	}
+
+	_, err := auth.Register(req.Email, req.Password)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to register user"})
+		return
+	}
+
+	c.Status(http.StatusCreated)
+}
+
+func Login(c *gin.Context) {
+	var req struct {
+		Email    string `json:"email"`
+		Password string `json:"password"`
+	}
+	if err := c.BindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	token, err := auth.Login(req.Email, req.Password)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid credentials"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"token": token})
+}
+
+func GitHubLogin(c *gin.Context) {
+	var req struct {
+		Code string `json:"code"`
+	}
+	if err := c.BindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	token, err := auth.GitHubLogin(req.Code)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": fmt.Sprintf("GitHub login failed: %v", err)})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"token": token})
+}
+
+// --- System Handlers ---
+
 func AddSystem(c *gin.Context) {
+	userID := c.GetInt("user_id")
+	
 	var req struct {
 		Name   string `json:"name"`
 		URL    string `json:"url"`
@@ -43,7 +123,7 @@ func AddSystem(c *gin.Context) {
 		return
 	}
 
-	id, err := db.AddSystem(req.Name, req.URL, strings.TrimSpace(req.APIKey))
+	id, err := db.AddSystem(userID, req.Name, req.URL, strings.TrimSpace(req.APIKey))
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to add system"})
 		return
@@ -53,7 +133,9 @@ func AddSystem(c *gin.Context) {
 }
 
 func GetSystems(c *gin.Context) {
-	systems, err := db.GetSystems()
+	userID := c.GetInt("user_id")
+	
+	systems, err := db.GetSystems(userID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch systems"})
 		return
@@ -62,6 +144,7 @@ func GetSystems(c *gin.Context) {
 }
 
 func DeleteSystem(c *gin.Context) {
+	userID := c.GetInt("user_id")
 	idStr := c.Param("id")
 	id, err := strconv.Atoi(idStr)
 	if err != nil {
@@ -69,7 +152,7 @@ func DeleteSystem(c *gin.Context) {
 		return
 	}
 
-	if err := db.DeleteSystem(id); err != nil {
+	if err := db.DeleteSystem(id, userID); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete system"})
 		return
 	}
@@ -77,6 +160,7 @@ func DeleteSystem(c *gin.Context) {
 }
 
 func GetMetrics(c *gin.Context) {
+	userID := c.GetInt("user_id")
 	systemIDStr := c.Query("system_id")
 	if systemIDStr == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "system_id is required"})
@@ -89,7 +173,7 @@ func GetMetrics(c *gin.Context) {
 		return
 	}
 
-	system, err := db.GetSystem(systemID)
+	system, err := db.GetSystem(systemID, userID)
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "System not found"})
 		return
@@ -126,6 +210,7 @@ func GetMetrics(c *gin.Context) {
 }
 
 func ProxyRequest(c *gin.Context) {
+	userID := c.GetInt("user_id")
 	systemIDStr := c.Param("id")
 	path := c.Query("path")
 	if path == "" {
@@ -139,7 +224,7 @@ func ProxyRequest(c *gin.Context) {
 		return
 	}
 
-	system, err := db.GetSystem(systemID)
+	system, err := db.GetSystem(systemID, userID)
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "System not found"})
 		return

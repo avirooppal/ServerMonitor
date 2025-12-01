@@ -54,26 +54,39 @@ On the first run, a secure Master API Key is generated. Retrieve it:
 docker exec server-moni-dashboard-1 cat data/api_key.txt
 ```
 
-### 3. Login & Add Agents
-1. Open the Dashboard.
-2. Go to **Settings**.
-3. Enter your **Master API Key** to unlock admin features.
-4. Copy the **One-Click Installer** command shown in the dashboard.
-
-### 4. Install Agents
-Run the copied command on **any** Linux server you want to monitor:
-
-```bash
-curl -sL https://raw.githubusercontent.com/avirooppal/ServerMonitor/main/web/public/get-key.sh | bash
-```
-
-This script will:
 1. Check for Docker (and install if missing).
 2. Pull and run the Agent container.
 3. Output the **API Key** and **URL** for that agent.
 
 ### 5. Add to Dashboard
 Copy the **Name**, **URL**, and **API Key** from the script output back into your Dashboard's "Add System" form.
+
+---
+
+### 3. Install Agents
+
+#### Option 1: Single Command (Recommended)
+
+Run the following command on your Linux server (requires `systemd`):
+
+```bash
+wget -qO- https://your-server-domain.com/setup.sh | sudo bash -s -- <API_URL> <API_TOKEN>
+```
+
+Replace `<API_URL>` with your Server Monitor backend URL (e.g., `https://monitor.example.com`) and `<API_TOKEN>` with your agent token.
+
+#### Option 2: Docker
+
+```bash
+docker run -d \
+  --name server-moni-agent \
+  --restart unless-stopped \
+  --network host \
+  -v /var/run/docker.sock:/var/run/docker.sock \
+  -e API_URL="https://monitor.example.com" \
+  -e API_TOKEN="your-token" \
+  avirooppal/linux-monitoring-agent:latest
+```
 
 ---
 

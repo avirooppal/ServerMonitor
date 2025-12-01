@@ -14,6 +14,11 @@ build-backend:
 run: build-backend
 	./server-moni
 
+build-agent-binaries:
+	mkdir -p bin
+	GOOS=linux GOARCH=amd64 go build -o bin/agent-linux-amd64 ./cmd/agent
+	GOOS=linux GOARCH=arm64 go build -o bin/agent-linux-arm64 ./cmd/agent
+
 docker-build:
 	docker build -t server-moni .
 

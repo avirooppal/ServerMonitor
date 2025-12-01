@@ -32,23 +32,78 @@ func InitDB() {
 		value TEXT
 	);`
 
+	createUsersTable := `CREATE TABLE IF NOT EXISTS users (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		email TEXT UNIQUE,
+		password_hash TEXT,
+		provider TEXT DEFAULT 'local',
+		provider_id TEXT,
+		created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	);`
+
 	createSystemsTable := `CREATE TABLE IF NOT EXISTS systems (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		user_id INTEGER,
 		name TEXT NOT NULL,
 		url TEXT NOT NULL,
 		api_key TEXT NOT NULL,
-		created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+		created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+		FOREIGN KEY(user_id) REFERENCES users(id)
 	);`
 
 	if _, err := DB.Exec(createConfigTable); err != nil {
 		log.Fatalf("Failed to create config table: %v", err)
 	}
 
+	if _, err := DB.Exec(createUsersTable); err != nil {
+		log.Fatalf("Failed to create users table: %v", err)
+	}
+
 	if _, err := DB.Exec(createSystemsTable); err != nil {
 		log.Fatalf("Failed to create systems table: %v", err)
 	}
+	
+	// Migration: Add user_id to systems if it doesn't exist
+	// SQLite doesn't support IF NOT EXISTS for columns, so we ignore error
+	_, _ = DB.Exec("ALTER TABLE systems ADD COLUMN user_id INTEGER REFERENCES users(id)")
 
 	InitDiskHistoryTable()
+}
+
+// User Struct
+type User struct {
+	ID           int       `json:"id"`
+	Email        string    `json:"email"`
+	PasswordHash string    `json:"-"`
+	Provider     string    `json:"provider"`
+	ProviderID   string    `json:"provider_id"`
+	CreatedAt    time.Time `json:"created_at"`
+}
+
+func CreateUser(email, passwordHash, provider, providerID string) (int64, error) {
+	res, err := DB.Exec("INSERT INTO users (email, password_hash, provider, provider_id) VALUES (?, ?, ?, ?)", email, passwordHash, provider, providerID)
+	if err != nil {
+		return 0, err
+	}
+	return res.LastInsertId()
+}
+
+func GetUserByEmail(email string) (*User, error) {
+	var u User
+	err := DB.QueryRow("SELECT id, email, password_hash, provider, provider_id, created_at FROM users WHERE email = ?", email).Scan(&u.ID, &u.Email, &u.PasswordHash, &u.Provider, &u.ProviderID, &u.CreatedAt)
+	if err != nil {
+		return nil, err
+	}
+	return &u, nil
+}
+
+func GetUserByID(id int) (*User, error) {
+	var u User
+	err := DB.QueryRow("SELECT id, email, password_hash, provider, provider_id, created_at FROM users WHERE id = ?", id).Scan(&u.ID, &u.Email, &u.PasswordHash, &u.Provider, &u.ProviderID, &u.CreatedAt)
+	if err != nil {
+		return nil, err
+	}
+	return &u, nil
 }
 
 func GetConfig(key string) (string, error) {
@@ -62,16 +117,29 @@ func SetConfig(key, value string) error {
 	return err
 }
 
-func AddSystem(name, url, apiKey string) (int64, error) {
-	res, err := DB.Exec("INSERT INTO systems (name, url, api_key) VALUES (?, ?, ?)", name, url, apiKey)
+func AddSystem(userID int, name, url, apiKey string) (int64, error) {
+	res, err := DB.Exec("INSERT INTO systems (user_id, name, url, api_key) VALUES (?, ?, ?, ?)", userID, name, url, apiKey)
 	if err != nil {
 		return 0, err
 	}
 	return res.LastInsertId()
 }
 
-func GetSystems() ([]System, error) {
-	rows, err := DB.Query("SELECT id, name, url, api_key, created_at FROM systems ORDER BY created_at DESC")
+func GetSystems(userID int) ([]System, error) {
+	// If userID is 0 (Self-Hosted mode legacy), we might want to return all or handle differently.
+	// But for now, we assume strict separation if userID is provided.
+	// For backward compatibility/Self-Hosted, we might pass 0 or -1.
+	
+	query := "SELECT id, name, url, api_key, created_at FROM systems WHERE user_id = ? ORDER BY created_at DESC"
+	args := []interface{}{userID}
+	
+	if userID == 0 {
+		// Fetch all (Self-Hosted Mode) or systems with NULL user_id
+		query = "SELECT id, name, url, api_key, created_at FROM systems WHERE user_id IS NULL OR user_id = 0 ORDER BY created_at DESC"
+		args = []interface{}{}
+	}
+
+	rows, err := DB.Query(query, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -88,17 +156,33 @@ func GetSystems() ([]System, error) {
 	return systems, nil
 }
 
-func GetSystem(id int) (*System, error) {
+func GetSystem(id int, userID int) (*System, error) {
 	var s System
-	err := DB.QueryRow("SELECT id, name, url, api_key, created_at FROM systems WHERE id = ?", id).Scan(&s.ID, &s.Name, &s.URL, &s.APIKey, &s.CreatedAt)
+	query := "SELECT id, name, url, api_key, created_at FROM systems WHERE id = ? AND user_id = ?"
+	args := []interface{}{id, userID}
+
+	if userID == 0 {
+		query = "SELECT id, name, url, api_key, created_at FROM systems WHERE id = ?"
+		args = []interface{}{id}
+	}
+
+	err := DB.QueryRow(query, args...).Scan(&s.ID, &s.Name, &s.URL, &s.APIKey, &s.CreatedAt)
 	if err != nil {
 		return nil, err
 	}
 	return &s, nil
 }
 
-func DeleteSystem(id int) error {
-	_, err := DB.Exec("DELETE FROM systems WHERE id = ?", id)
+func DeleteSystem(id int, userID int) error {
+	query := "DELETE FROM systems WHERE id = ? AND user_id = ?"
+	args := []interface{}{id, userID}
+	
+	if userID == 0 {
+		query = "DELETE FROM systems WHERE id = ?"
+		args = []interface{}{id}
+	}
+	
+	_, err := DB.Exec(query, args...)
 	return err
 }
 
