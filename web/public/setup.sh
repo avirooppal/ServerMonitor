@@ -56,6 +56,15 @@ if [ -z "$DOMAIN" ]; then
 else
     # --- HTTPS MODE (Caddy) ---
     echo "🔒 Mode: HTTPS (Domain: $DOMAIN)"
+
+    # Pre-flight Check: Ports 80 & 443
+    if lsof -Pi :80 -sTCP:LISTEN -t >/dev/null 2>&1 || lsof -Pi :443 -sTCP:LISTEN -t >/dev/null 2>&1; then
+        echo "❌ Error: Port 80 or 443 is already in use."
+        echo "   To use SSL, Caddy needs these ports to be free."
+        echo "   Please stop any existing web server (e.g., 'systemctl stop apache2' or 'systemctl stop nginx') and try again."
+        echo "   Alternatively, run without a domain to use HTTP on port 8080."
+        exit 1
+    fi
     
     # Create Network
     docker network create server-moni-net
