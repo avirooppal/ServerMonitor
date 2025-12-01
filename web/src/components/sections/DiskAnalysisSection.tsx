@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { HardDrive, Folder, Activity } from 'lucide-react';
-import { client } from '../../utils/api';
+import axios from 'axios';
+import { type System } from '../../utils/api';
 
 interface FolderSize {
     path: string;
@@ -8,7 +9,7 @@ interface FolderSize {
 }
 
 interface DiskAnalysisSectionProps {
-    systemId: number;
+    system: System;
 }
 
 interface DiskHistory {
@@ -18,7 +19,7 @@ interface DiskHistory {
     used: number;
 }
 
-const DiskAnalysisSection: React.FC<DiskAnalysisSectionProps> = ({ systemId }) => {
+const DiskAnalysisSection: React.FC<DiskAnalysisSectionProps> = ({ system }) => {
     const [folders, setFolders] = useState<FolderSize[]>([]);
     const [history, setHistory] = useState<DiskHistory[]>([]);
     const [loading, setLoading] = useState(true);
@@ -26,16 +27,19 @@ const DiskAnalysisSection: React.FC<DiskAnalysisSectionProps> = ({ systemId }) =
     useEffect(() => {
         const fetchData = async () => {
             try {
+                const config = {
+                    headers: { 'Authorization': `Bearer ${system.api_key}` }
+                };
+
                 // Fetch Folders
-                const folderRes = await client.get(`/systems/${systemId}/proxy`, {
-                    params: { path: '/disk/usage' }
+                const folderRes = await axios.get(`${system.url}/api/v1/disk/usage`, {
+                    ...config,
+                    params: { path: '/' } // Default path
                 });
                 setFolders(folderRes.data || []);
 
                 // Fetch History
-                const historyRes = await client.get(`/systems/${systemId}/proxy`, {
-                    params: { path: '/disk/history' }
-                });
+                const historyRes = await axios.get(`${system.url}/api/v1/disk/history`, config);
                 setHistory(historyRes.data || []);
 
             } catch (error) {
@@ -46,7 +50,7 @@ const DiskAnalysisSection: React.FC<DiskAnalysisSectionProps> = ({ systemId }) =
         };
 
         fetchData();
-    }, [systemId]);
+    }, [system]);
 
     const formatBytes = (bytes: number) => {
         if (bytes === 0) return '0 B';

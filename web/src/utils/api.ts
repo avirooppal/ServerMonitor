@@ -1,67 +1,58 @@
 import axios from 'axios';
 
-const API_URL = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? '/api/v1' : 'http://localhost:8080/api/v1');
-
-export const setApiKey = (key: string) => {
-    localStorage.setItem('server_moni_key', key);
-};
-
-export const getApiKey = () => {
-    return localStorage.getItem('server_moni_key');
-};
-
-export const client = axios.create({
-    baseURL: API_URL,
-});
-
-client.interceptors.request.use((config) => {
-    const key = getApiKey();
-    if (key) {
-        config.headers.Authorization = `Bearer ${key.trim()}`;
-    }
-    return config;
-});
+// Client-Side System Management (localStorage)
 
 export interface System {
-    id: number;
+    id: string;
     name: string;
     url: string;
-    api_key: string;
+    api_key: string; // This is the AGENT_SECRET
     created_at: string;
 }
 
-export const fetchSystems = async (): Promise<System[]> => {
-    const response = await client.get('/systems');
-    return response.data || [];
+const STORAGE_KEY = 'server_moni_systems';
+
+export const getSystems = (): System[] => {
+    const data = localStorage.getItem(STORAGE_KEY);
+    if (!data) return [];
+    try {
+        return JSON.parse(data);
+    } catch (e) {
+        console.error("Failed to parse systems from localStorage", e);
+        return [];
+    }
 };
 
-export const addSystem = async (name: string, url: string, apiKey: string) => {
-    const response = await client.post('/systems', { name, url, api_key: apiKey });
-    return response.data;
+export const saveSystem = (system: System) => {
+    const systems = getSystems();
+    systems.push(system);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(systems));
 };
 
-export const deleteSystem = async (id: number) => {
-    await client.delete(`/systems/${id}`);
+export const deleteSystem = (id: string) => {
+    const systems = getSystems().filter(s => s.id !== id);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(systems));
 };
 
-export const fetchMetrics = async (systemId?: string | number) => {
-    const params = systemId ? { system_id: systemId } : {};
-    const response = await client.get('/metrics', { params });
-    return response.data;
+// Direct Agent Communication
+
+export const fetchMetrics = async (system: System) => {
+    try {
+        const response = await axios.get(`${system.url}/api/v1/metrics`, {
+            headers: {
+                'Authorization': `Bearer ${system.api_key}`
+            },
+            timeout: 5000
+        });
+        return response.data;
+    } catch (error) {
+        console.error(`Failed to fetch metrics from ${system.name}:`, error);
+        throw error;
+    }
 };
 
-export const fetchStatus = async () => {
-    // This might fail if we are not connected to a local agent directly
-    // But for the dashboard, we might want to check backend status
-    // For now, let's just return true
-    return { status: 'ok' };
+// Helper to generate random token
+export const generateToken = () => {
+    return Math.random().toString(36).substring(2) + Math.random().toString(36).substring(2);
 };
 
-export const verifyKey = async (key: string) => {
-    const testClient = axios.create({
-        baseURL: API_URL,
-        headers: { Authorization: `Bearer ${key}` }
-    });
-    await testClient.post('/verify-key');
-    return true;
-};

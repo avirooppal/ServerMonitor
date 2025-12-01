@@ -8,7 +8,7 @@ interface ServicesSectionProps {
 }
 
 interface SystemStatus {
-    id: number;
+    id: string;
     status: 'ok' | 'error' | 'loading';
     uptime: string;
     lastCheck: string;
@@ -16,18 +16,17 @@ interface SystemStatus {
 }
 
 export const ServicesSection: React.FC<ServicesSectionProps> = ({ systems }) => {
-    const [statuses, setStatuses] = useState<Record<number, SystemStatus>>({});
+    const [statuses, setStatuses] = useState<Record<string, SystemStatus>>({});
     const [searchTerm, setSearchTerm] = useState('');
 
     useEffect(() => {
         const checkAllSystems = async () => {
-            const newStatuses: Record<number, SystemStatus> = {};
+            const newStatuses: Record<string, SystemStatus> = {};
 
             for (const system of systems) {
                 try {
                     // We fetch metrics to check status. 
-                    // In a real app, we might have a lightweight /ping endpoint.
-                    const data = await fetchMetrics(system.id);
+                    const data = await fetchMetrics(system);
 
                     // Format uptime
                     const seconds = data.host_info.uptime;

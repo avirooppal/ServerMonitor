@@ -2,14 +2,15 @@ import React, { useState } from 'react';
 import type { SystemMetrics } from '../../types';
 import { Box, Play, Square, FileText, X, Loader } from 'lucide-react';
 import clsx from 'clsx';
-import { client } from '../../utils/api';
+import axios from 'axios';
+import { type System } from '../../utils/api';
 
 interface DockerSectionProps {
     metrics: SystemMetrics;
-    systemId: number;
+    system: System;
 }
 
-export const DockerSection: React.FC<DockerSectionProps> = ({ metrics, systemId }) => {
+export const DockerSection: React.FC<DockerSectionProps> = ({ metrics, system }) => {
     const containers = metrics.containers || [];
     const [selectedContainer, setSelectedContainer] = useState<string | null>(null);
     const [logs, setLogs] = useState<string>('');
@@ -28,12 +29,9 @@ export const DockerSection: React.FC<DockerSectionProps> = ({ metrics, systemId 
         setLoadingLogs(true);
         setLogs('');
         try {
-            // Use client from api.ts which handles Dashboard Auth
-            const response = await client.get(`/systems/${systemId}/proxy`, {
-                params: {
-                    path: `/docker/containers/${containerId}/logs`
-                },
-                responseType: 'text' // Logs are text
+            const response = await axios.get(`${system.url}/api/v1/docker/containers/${containerId}/logs`, {
+                headers: { 'Authorization': `Bearer ${system.api_key}` },
+                responseType: 'text'
             });
             setLogs(response.data);
         } catch (error: any) {
