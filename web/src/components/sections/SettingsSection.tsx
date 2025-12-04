@@ -1,170 +1,111 @@
 import React, { useState, useEffect } from 'react';
-import { Server, Plus, Trash2, ExternalLink, Copy, Check } from 'lucide-react';
-import { getSystems, saveSystem, deleteSystem, generateToken, type System } from '../../utils/api';
+import { Save, Server, Key, Plus, Trash2, ExternalLink, Eye, EyeOff } from 'lucide-react';
+import { setApiKey as saveApiKey, getApiKey, fetchSystems, addSystem, deleteSystem, type System } from '../../utils/api';
 
 export const SettingsSection: React.FC = () => {
+    const [apiKey, setApiKey] = useState('');
+    const [showKey, setShowKey] = useState(false);
+    const [saved, setSaved] = useState(false);
     const [systems, setSystems] = useState<System[]>([]);
     const [newSystem, setNewSystem] = useState({ name: '', url: '', apiKey: '' });
-    const [generatedToken, setGeneratedToken] = useState('');
-    const [copied, setCopied] = useState(false);
-    const [useSSL, setUseSSL] = useState(false);
-    const [domain, setDomain] = useState('');
+    const [showNewSystemKey, setShowNewSystemKey] = useState(false);
+    const [loading, setLoading] = useState(false);
 
     useEffect(() => {
+        const key = getApiKey();
+        if (key) setApiKey(key);
         loadSystems();
-        generateNewToken();
     }, []);
 
-    const loadSystems = () => {
-        setSystems(getSystems());
-    };
-
-    const generateNewToken = () => {
-        const token = generateToken();
-        setGeneratedToken(token);
-        setNewSystem(prev => ({ ...prev, apiKey: token }));
-    };
-
-    const handleCopyCommand = () => {
-        let cmd = `curl -sL https://raw.githubusercontent.com/avirooppal/ServerMonitor/main/web/public/setup.sh | bash -s -- ${generatedToken}`;
-        if (useSSL) {
-            const d = domain || '<YOUR_VPS_IP>.nip.io';
-            cmd += ` ${d}`;
+    const loadSystems = async () => {
+        try {
+            const list = await fetchSystems();
+            setSystems(list);
+        } catch (e) {
+            console.error("Failed to load systems", e);
         }
-        navigator.clipboard.writeText(cmd);
-        setCopied(true);
-        setTimeout(() => setCopied(false), 2000);
     };
 
-    const handleAddSystem = () => {
+    const handleSaveKey = () => {
+        const trimmedKey = apiKey.trim();
+        setApiKey(trimmedKey);
+        saveApiKey(trimmedKey);
+        setSaved(true);
+        setTimeout(() => setSaved(false), 2000);
+    };
+
+    const handleAddSystem = async () => {
         if (!newSystem.name || !newSystem.url || !newSystem.apiKey) return;
-
-        const system: System = {
-            id: Date.now().toString(),
-            name: newSystem.name.trim(),
-            url: newSystem.url.trim().replace(/\/$/, ''), // Remove trailing slash
-            api_key: newSystem.apiKey.trim(),
-            created_at: new Date().toISOString()
-        };
-
-        saveSystem(system);
-        setNewSystem({ name: '', url: '', apiKey: '' });
-        generateNewToken(); // Reset for next
-        loadSystems();
+        setLoading(true);
+        try {
+            await addSystem(newSystem.name.trim(), newSystem.url.trim(), newSystem.apiKey.trim());
+            setNewSystem({ name: '', url: '', apiKey: '' });
+            await loadSystems();
+        } catch (e: any) {
+            console.error(e);
+            const msg = e.response?.data?.error || e.message || 'Failed to add system';
+            alert(`Error: ${msg}`);
+        } finally {
+            setLoading(false);
+        }
     };
 
-    const handleDeleteSystem = (id: string) => {
+    const handleDeleteSystem = async (id: number) => {
         if (!confirm('Are you sure you want to remove this system?')) return;
-        deleteSystem(id);
-        loadSystems();
+        try {
+            await deleteSystem(id);
+            await loadSystems();
+        } catch (e) {
+            alert('Failed to delete system');
+        }
     };
 
     return (
         <div className="max-w-4xl mx-auto space-y-8 pb-10">
-            {/* Add New System Flow */}
+            {/* API Key Config */}
             <div className="bg-[#1e293b]/50 backdrop-blur-sm p-8 rounded-2xl border border-gray-800/50 shadow-xl">
                 <div className="flex items-center space-x-3 mb-6">
-                    <div className="p-2 bg-purple-500/10 rounded-lg">
-                        <Plus className="text-purple-400 w-6 h-6" />
+                    <div className="p-2 bg-blue-500/10 rounded-lg">
+                        <Key className="text-blue-400 w-6 h-6" />
                     </div>
                     <div>
-                        <h2 className="text-xl font-bold text-white">Add New Server</h2>
-                        <p className="text-gray-400 text-sm">Install the agent and connect it to your dashboard</p>
+                        <h2 className="text-xl font-bold text-white">Dashboard Access</h2>
+                        <p className="text-gray-400 text-sm">Your master API key for this dashboard</p>
                     </div>
                 </div>
 
-                {/* Step 1: Install Agent */}
-                <div className="mb-8">
-                    <div className="flex items-center justify-between mb-2">
-                        <h3 className="text-sm font-semibold text-blue-400 uppercase tracking-wider">Step 1: Install Agent</h3>
-                        <div className="flex items-center space-x-2">
-                            <label className="text-xs text-gray-400 flex items-center space-x-2 cursor-pointer">
-                                <input
-                                    type="checkbox"
-                                    checked={useSSL}
-                                    onChange={(e) => setUseSSL(e.target.checked)}
-                                    className="rounded border-gray-600 bg-gray-800 text-purple-500 focus:ring-purple-500/50"
-                                />
-                                <span>Enable SSL (HTTPS)</span>
-                            </label>
-                        </div>
-                    </div>
-
-                    {useSSL && (
-                        <div className="mb-3">
-                            <input
-                                type="text"
-                                placeholder="Enter Domain or VPS IP (e.g. 1.2.3.4)"
-                                value={domain}
-                                onChange={(e) => setDomain(e.target.value)}
-                                className="w-full bg-black/30 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500"
-                            />
-                            <p className="text-[10px] text-gray-500 mt-1">
-                                No domain? Enter your IP, and we'll use <b>{domain || '1.2.3.4'}.nip.io</b> for SSL.
-                            </p>
-                        </div>
-                    )}
-
-                    <div className="bg-black/30 p-4 rounded-xl border border-blue-500/10 flex items-center justify-between group relative overflow-hidden">
-                        <code className="font-mono text-sm text-blue-300 break-all select-all z-10">
-                            curl -sL https://raw.githubusercontent.com/avirooppal/ServerMonitor/main/web/public/setup.sh | bash -s -- {generatedToken} {useSSL ? (domain.match(/^\d+\.\d+\.\d+\.\d+$/) ? `${domain}.nip.io` : (domain || '<YOUR_DOMAIN>')) : ''}
-                        </code>
+                <div className="flex space-x-4">
+                    <div className="relative flex-1">
+                        <input
+                            type={showKey ? "text" : "password"}
+                            value={apiKey}
+                            onChange={(e) => setApiKey(e.target.value)}
+                            className="w-full bg-gray-900/50 border border-gray-700 text-white rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition-all font-mono pr-10"
+                            placeholder="Enter your Master API key..."
+                        />
                         <button
-                            onClick={handleCopyCommand}
-                            className="ml-4 text-gray-400 hover:text-white transition-colors p-2 hover:bg-white/5 rounded-lg z-10"
-                            title="Copy to clipboard"
+                            onClick={() => setShowKey(!showKey)}
+                            className="absolute right-3 top-3 text-gray-500 hover:text-gray-300 transition-colors"
                         >
-                            {copied ? <Check className="w-5 h-5 text-green-400" /> : <Copy className="w-5 h-5" />}
+                            {showKey ? <EyeOff size={20} /> : <Eye size={20} />}
                         </button>
                     </div>
-                    <p className="text-xs text-gray-500 mt-2">
-                        Run this command on your VPS. {useSSL ? 'It will set up Caddy for HTTPS.' : 'It will start the agent on HTTP port 8080.'}
-                    </p>
-                </div>
-
-                {/* Step 2: Connect */}
-                <div>
-                    <h3 className="text-sm font-semibold text-purple-400 mb-4 uppercase tracking-wider">Step 2: Connect</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                            <label className="block text-xs text-gray-500 mb-1">System Name</label>
-                            <input
-                                type="text"
-                                placeholder="e.g. Production DB"
-                                value={newSystem.name}
-                                onChange={(e) => setNewSystem({ ...newSystem, name: e.target.value })}
-                                className="w-full bg-black/30 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-purple-500 transition-colors"
-                            />
-                        </div>
-                        <div>
-                            <label className="block text-xs text-gray-500 mb-1">Agent URL</label>
-                            <input
-                                type="text"
-                                placeholder="e.g. http://1.2.3.4:8080"
-                                value={newSystem.url}
-                                onChange={(e) => setNewSystem({ ...newSystem, url: e.target.value })}
-                                className="w-full bg-black/30 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-purple-500 transition-colors"
-                            />
-                        </div>
-                    </div>
-                    <div className="mt-4 flex justify-end">
-                        <button
-                            onClick={handleAddSystem}
-                            className="bg-purple-600 hover:bg-purple-500 text-white px-6 py-2 rounded-lg text-sm font-medium transition-colors shadow-lg shadow-purple-600/20 flex items-center space-x-2"
-                        >
-                            <Server size={16} />
-                            <span>Connect Server</span>
-                        </button>
-                    </div>
+                    <button
+                        onClick={handleSaveKey}
+                        className="bg-blue-600 hover:bg-blue-500 text-white font-medium px-6 rounded-xl transition-all flex items-center space-x-2 shadow-lg shadow-blue-600/20"
+                    >
+                        <Save size={20} />
+                        <span>{saved ? 'Saved!' : 'Save'}</span>
+                    </button>
                 </div>
             </div>
 
-            {/* Systems List */}
+            {/* Systems Management */}
             <div className="bg-[#1e293b]/50 backdrop-blur-sm p-8 rounded-2xl border border-gray-800/50 shadow-xl">
                 <div className="flex items-center justify-between mb-6">
                     <div className="flex items-center space-x-3">
-                        <div className="p-2 bg-blue-500/10 rounded-lg">
-                            <Server className="text-blue-400 w-6 h-6" />
+                        <div className="p-2 bg-purple-500/10 rounded-lg">
+                            <Server className="text-purple-400 w-6 h-6" />
                         </div>
                         <div>
                             <h2 className="text-xl font-bold text-white">Monitored Systems</h2>
@@ -173,41 +114,114 @@ export const SettingsSection: React.FC = () => {
                     </div>
                 </div>
 
+                {/* Add New System */}
+                <div className="bg-gray-900/50 p-6 rounded-xl border border-gray-700/50 mb-8">
+                    <h3 className="text-sm font-semibold text-gray-300 mb-4 flex items-center">
+                        <Plus size={16} className="mr-2" /> Add New System
+                    </h3>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <input
+                            type="text"
+                            placeholder="System Name (e.g. Prod DB)"
+                            value={newSystem.name}
+                            onChange={(e) => setNewSystem({ ...newSystem, name: e.target.value })}
+                            className="bg-black/30 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-purple-500"
+                        />
+                        <input
+                            type="text"
+                            placeholder="Agent URL (e.g. http://1.2.3.4:8080)"
+                            value={newSystem.url}
+                            onChange={(e) => setNewSystem({ ...newSystem, url: e.target.value })}
+                            className="bg-black/30 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-purple-500"
+                        />
+                        <div className="relative">
+                            <input
+                                type={showNewSystemKey ? "text" : "password"}
+                                placeholder="Agent API Key"
+                                value={newSystem.apiKey}
+                                onChange={(e) => setNewSystem({ ...newSystem, apiKey: e.target.value })}
+                                className="w-full bg-black/30 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-purple-500 pr-8"
+                            />
+                            <button
+                                onClick={() => setShowNewSystemKey(!showNewSystemKey)}
+                                className="absolute right-2 top-2 text-gray-500 hover:text-gray-300 transition-colors"
+                            >
+                                {showNewSystemKey ? <EyeOff size={16} /> : <Eye size={16} />}
+                            </button>
+                        </div>
+                    </div>
+                    <div className="mt-4 flex justify-end">
+                        <button
+                            onClick={handleAddSystem}
+                            disabled={loading}
+                            className="bg-purple-600 hover:bg-purple-500 text-white px-6 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
+                        >
+                            {loading ? 'Adding...' : 'Add System'}
+                        </button>
+                    </div>
+                </div>
+
+                {/* Agent Helper Script */}
+                <div className="bg-blue-500/10 p-6 rounded-xl border border-blue-500/20 mb-8">
+                    <h3 className="text-sm font-semibold text-blue-400 mb-2 flex items-center">
+                        <Server size={16} className="mr-2" /> Easy Setup Script
+                    </h3>
+                    <p className="text-gray-400 text-xs mb-3">
+                        Run this command on your agent server to instantly get the URL and API Key:
+                    </p>
+                    <div className="bg-black/30 p-3 rounded-lg border border-blue-500/10 flex items-center justify-between group">
+                        <code className="font-mono text-xs text-blue-300 break-all select-all">
+                            curl -sL https://raw.githubusercontent.com/avirooppal/ServerMonitor/main/web/public/get-key.sh | bash
+                        </code>
+                        <button
+                            onClick={() => {
+                                navigator.clipboard.writeText(`curl -sL https://raw.githubusercontent.com/avirooppal/ServerMonitor/main/web/public/get-key.sh | bash`);
+                                alert('Command copied to clipboard!');
+                            }}
+                            className="ml-4 text-gray-500 hover:text-white transition-colors"
+                            title="Copy to clipboard"
+                        >
+                            <Save className="w-4 h-4" />
+                        </button>
+                    </div>
+                </div>
+
+                {/* Systems List */}
                 <div className="space-y-3">
                     {systems.length === 0 ? (
-                        <div className="text-center py-8 text-gray-500 border border-dashed border-gray-700 rounded-xl">
-                            No systems added yet. Follow the steps above to add one!
+                        <div className="text-center py-8 text-gray-500">
+                            No systems added yet. Add one above!
                         </div>
                     ) : (
                         systems.map((sys) => (
-                            <div key={sys.id} className="flex items-center justify-between bg-gray-800/30 p-4 rounded-xl border border-white/5 hover:border-white/10 transition-colors group">
+                            <div key={sys.id} className="flex items-center justify-between bg-gray-800/30 p-4 rounded-xl border border-white/5 hover:border-white/10 transition-colors">
                                 <div className="flex items-center space-x-4">
-                                    <div className="w-2 h-2 bg-green-500 rounded-full shadow-[0_0_8px_rgba(34,197,94,0.5)]" />
+                                    <div className="w-2 h-2 bg-green-500 rounded-full" />
                                     <div>
-                                        <h4 className="font-medium text-white group-hover:text-blue-400 transition-colors">{sys.name}</h4>
+                                        <h4 className="font-medium text-white">{sys.name}</h4>
                                         <div className="flex items-center space-x-2 text-xs text-gray-500">
-                                            <span className="font-mono">{sys.url}</span>
+                                            <span>{sys.url}</span>
                                             <span className="text-gray-700">•</span>
                                             <span>Added {new Date(sys.created_at).toLocaleDateString()}</span>
                                         </div>
                                     </div>
                                 </div>
-                                <div className="flex items-center space-x-3 opacity-50 group-hover:opacity-100 transition-opacity">
+                                <div className="flex items-center space-x-3">
                                     <a
                                         href={`${sys.url}/api/v1/ping`}
                                         target="_blank"
                                         rel="noreferrer"
-                                        className="p-2 text-gray-400 hover:text-blue-400 transition-colors bg-white/5 rounded-lg"
+                                        className="p-2 text-gray-400 hover:text-blue-400 transition-colors"
                                         title="Test Connection"
                                     >
-                                        <ExternalLink size={16} />
+                                        <ExternalLink size={18} />
                                     </a>
                                     <button
                                         onClick={() => handleDeleteSystem(sys.id)}
-                                        className="p-2 text-gray-400 hover:text-red-400 transition-colors bg-white/5 rounded-lg hover:bg-red-500/10"
+                                        className="p-2 text-gray-400 hover:text-red-400 transition-colors"
                                         title="Remove System"
                                     >
-                                        <Trash2 size={16} />
+                                        <Trash2 size={18} />
                                     </button>
                                 </div>
                             </div>

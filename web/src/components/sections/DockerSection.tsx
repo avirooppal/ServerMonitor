@@ -1,188 +1,149 @@
-import React, { useState } from 'react';
+import React from 'react';
 import type { SystemMetrics } from '../../types';
-import { Box, Play, Square, FileText, X, Loader } from 'lucide-react';
+import { Box, Play, Square, AlertCircle, Cpu, Layers } from 'lucide-react';
 import clsx from 'clsx';
-import axios from 'axios';
-import { type System } from '../../utils/api';
 
 interface DockerSectionProps {
     metrics: SystemMetrics;
-    system: System;
+    systemId: number;
 }
 
-export const DockerSection: React.FC<DockerSectionProps> = ({ metrics, system }) => {
+export const DockerSection: React.FC<DockerSectionProps> = ({ metrics }) => {
     const containers = metrics.containers || [];
-    const [selectedContainer, setSelectedContainer] = useState<string | null>(null);
-    const [logs, setLogs] = useState<string>('');
-    const [loadingLogs, setLoadingLogs] = useState(false);
 
-    const formatBytes = (bytes: number) => {
-        if (bytes === 0) return '0 B';
-        const k = 1024;
-        const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
-        const i = Math.floor(Math.log(bytes) / Math.log(k));
-        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    const getStatusColor = (state: string) => {
+        switch (state.toLowerCase()) {
+            case 'running': return 'text-success';
+            case 'exited': return 'text-gray-500';
+            case 'paused': return 'text-warning';
+            case 'restarting': return 'text-info';
+            case 'dead': return 'text-danger';
+            default: return 'text-gray-400';
+        }
     };
 
-    const fetchLogs = async (containerId: string) => {
-        setSelectedContainer(containerId);
-        setLoadingLogs(true);
-        setLogs('');
-        try {
-            const response = await axios.get(`${system.url}/api/v1/docker/containers/${containerId}/logs`, {
-                headers: { 'Authorization': `Bearer ${system.api_key}` },
-                responseType: 'text'
-            });
-            setLogs(response.data);
-        } catch (error: any) {
-            console.error("Failed to fetch logs", error);
-            const msg = error.response?.data?.error || error.message || 'Unknown error';
-            setLogs(`Failed to fetch logs. ${msg}`);
-        } finally {
-            setLoadingLogs(false);
+    const getStatusIcon = (state: string) => {
+        switch (state.toLowerCase()) {
+            case 'running': return <Play size={14} className="fill-current" />;
+            case 'exited': return <Square size={14} className="fill-current" />;
+            default: return <AlertCircle size={14} />;
         }
     };
 
     return (
-        <div className="space-y-6 relative">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="bg-[#1e293b]/50 backdrop-blur-sm p-6 rounded-2xl border border-gray-800/50 shadow-xl">
-                    <div className="flex items-center space-x-3 mb-2">
-                        <div className="p-2 bg-blue-500/10 rounded-lg">
-                            <Box className="text-blue-400 w-5 h-5" />
-                        </div>
-                        <h3 className="text-gray-400 font-medium">Total Containers</h3>
+        <div className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="bg-surface border border-white/5 rounded-xl p-4 flex items-center justify-between">
+                    <div>
+                        <p className="text-gray-400 text-sm font-medium">Total Containers</p>
+                        <p className="text-2xl font-bold text-white mt-1">{containers.length}</p>
                     </div>
-                    <p className="text-3xl font-bold text-white">{containers.length}</p>
+                    <div className="p-3 bg-primary/10 rounded-lg">
+                        <Box size={24} className="text-primary" />
+                    </div>
                 </div>
-                <div className="bg-[#1e293b]/50 backdrop-blur-sm p-6 rounded-2xl border border-gray-800/50 shadow-xl">
-                    <div className="flex items-center space-x-3 mb-2">
-                        <div className="p-2 bg-green-500/10 rounded-lg">
-                            <Play className="text-green-400 w-5 h-5" />
-                        </div>
-                        <h3 className="text-gray-400 font-medium">Running</h3>
+                <div className="bg-surface border border-white/5 rounded-xl p-4 flex items-center justify-between">
+                    <div>
+                        <p className="text-gray-400 text-sm font-medium">Running</p>
+                        <p className="text-2xl font-bold text-success mt-1">
+                            {containers.filter(c => c.state === 'running').length}
+                        </p>
                     </div>
-                    <p className="text-3xl font-bold text-white">
-                        {containers.filter(c => c.state === 'running').length}
-                    </p>
+                    <div className="p-3 bg-success/10 rounded-lg">
+                        <Play size={24} className="text-success fill-current" />
+                    </div>
                 </div>
-                <div className="bg-[#1e293b]/50 backdrop-blur-sm p-6 rounded-2xl border border-gray-800/50 shadow-xl">
-                    <div className="flex items-center space-x-3 mb-2">
-                        <div className="p-2 bg-red-500/10 rounded-lg">
-                            <Square className="text-red-400 w-5 h-5" />
-                        </div>
-                        <h3 className="text-gray-400 font-medium">Stopped</h3>
+                <div className="bg-surface border border-white/5 rounded-xl p-4 flex items-center justify-between">
+                    <div>
+                        <p className="text-gray-400 text-sm font-medium">Stopped</p>
+                        <p className="text-2xl font-bold text-gray-400 mt-1">
+                            {containers.filter(c => c.state !== 'running').length}
+                        </p>
                     </div>
-                    <p className="text-3xl font-bold text-white">
-                        {containers.filter(c => c.state !== 'running').length}
-                    </p>
+                    <div className="p-3 bg-white/5 rounded-lg">
+                        <Square size={24} className="text-gray-400 fill-current" />
+                    </div>
                 </div>
             </div>
 
-            <div className="bg-[#1e293b]/50 backdrop-blur-sm rounded-2xl border border-gray-800/50 shadow-xl overflow-hidden">
-                <div className="p-6 border-b border-gray-800/50">
-                    <h3 className="text-lg font-semibold text-white">Container List</h3>
+            <div className="bg-surface border border-white/5 rounded-xl overflow-hidden">
+                <div className="px-6 py-4 border-b border-white/5 flex items-center justify-between">
+                    <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+                        <Box size={20} className="text-primary" />
+                        Containers
+                    </h3>
+                    <span className="text-xs text-gray-500 bg-white/5 px-2 py-1 rounded">
+                        {containers.length} Total
+                    </span>
                 </div>
+
                 <div className="overflow-x-auto">
-                    <table className="w-full text-left">
+                    <table className="w-full text-left border-collapse">
                         <thead>
-                            <tr className="bg-gray-900/50 text-gray-400 text-sm uppercase tracking-wider">
-                                <th className="px-6 py-4 font-medium">Name / ID</th>
-                                <th className="px-6 py-4 font-medium">Image</th>
-                                <th className="px-6 py-4 font-medium">State</th>
-                                <th className="px-6 py-4 font-medium">CPU %</th>
-                                <th className="px-6 py-4 font-medium">Mem Usage</th>
-                                <th className="px-6 py-4 font-medium">Actions</th>
+                            <tr className="bg-white/5 text-gray-400 text-xs uppercase tracking-wider">
+                                <th className="px-6 py-3 font-medium">Name / ID</th>
+                                <th className="px-6 py-3 font-medium">Image</th>
+                                <th className="px-6 py-3 font-medium">State</th>
+                                <th className="px-6 py-3 font-medium text-right">CPU</th>
+                                <th className="px-6 py-3 font-medium text-right">Memory</th>
                             </tr>
                         </thead>
-                        <tbody className="divide-y divide-gray-800/50">
-                            {containers.map((container) => (
-                                <tr key={container.id} className="hover:bg-gray-800/30 transition-colors">
-                                    <td className="px-6 py-4">
-                                        <div className="flex flex-col">
-                                            <span className="font-medium text-white">{container.name}</span>
-                                            <span className="text-xs text-gray-500 font-mono">{container.id.substring(0, 12)}</span>
-                                        </div>
-                                    </td>
-                                    <td className="px-6 py-4 text-gray-300 font-mono text-sm">{container.image}</td>
-                                    <td className="px-6 py-4">
-                                        <span className={clsx(
-                                            "inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border",
-                                            container.state === 'running'
-                                                ? "bg-green-500/10 text-green-400 border-green-500/20"
-                                                : "bg-gray-700/30 text-gray-400 border-gray-600/30"
-                                        )}>
-                                            {container.state}
-                                        </span>
-                                    </td>
-                                    <td className="px-6 py-4">
-                                        <div className="flex items-center space-x-2">
-                                            <span className="text-white font-mono text-sm">
-                                                {container.cpu_percent ? container.cpu_percent.toFixed(2) : '0.00'}%
-                                            </span>
-                                        </div>
-                                    </td>
-                                    <td className="px-6 py-4">
-                                        <div className="flex flex-col">
-                                            <span className="text-white font-mono text-sm">
-                                                {formatBytes(container.memory_usage)}
-                                            </span>
-                                            <span className="text-xs text-gray-500">
-                                                Limit: {formatBytes(container.memory_limit)}
-                                            </span>
-                                        </div>
-                                    </td>
-                                    <td className="px-6 py-4">
-                                        <button
-                                            onClick={() => fetchLogs(container.id)}
-                                            className="text-blue-400 hover:text-blue-300 transition-colors p-2 hover:bg-blue-500/10 rounded-lg"
-                                            title="View Logs"
-                                        >
-                                            <FileText size={18} />
-                                        </button>
-                                    </td>
-                                </tr>
-                            ))}
-                            {containers.length === 0 && (
+                        <tbody className="divide-y divide-white/5">
+                            {containers.length === 0 ? (
                                 <tr>
-                                    <td colSpan={6} className="px-6 py-12 text-center text-gray-500">
-                                        No containers found or Docker not available.
+                                    <td colSpan={5} className="px-6 py-8 text-center text-gray-500">
+                                        No containers found.
                                     </td>
                                 </tr>
+                            ) : (
+                                containers.map((container) => (
+                                    <tr key={container.id} className="hover:bg-white/5 transition-colors group">
+                                        <td className="px-6 py-4">
+                                            <div className="flex flex-col">
+                                                <span className="font-medium text-white group-hover:text-primary transition-colors">
+                                                    {container.name.replace(/^\//, '')}
+                                                </span>
+                                                <span className="text-xs text-gray-500 font-mono">
+                                                    {container.id.substring(0, 12)}
+                                                </span>
+                                            </div>
+                                        </td>
+                                        <td className="px-6 py-4">
+                                            <span className="text-sm text-gray-300 font-mono bg-white/5 px-2 py-1 rounded">
+                                                {container.image}
+                                            </span>
+                                        </td>
+                                        <td className="px-6 py-4">
+                                            <div className={clsx("flex items-center gap-2 text-sm font-medium", getStatusColor(container.state))}>
+                                                {getStatusIcon(container.state)}
+                                                <span className="capitalize">{container.state}</span>
+                                            </div>
+                                            <div className="text-xs text-gray-500 mt-0.5">
+                                                {container.status}
+                                            </div>
+                                        </td>
+                                        <td className="px-6 py-4 text-right">
+                                            <div className="flex items-center justify-end gap-2 text-sm text-gray-300">
+                                                <Cpu size={14} className="text-gray-500" />
+                                                {container.cpu_percent.toFixed(2)}%
+                                            </div>
+                                        </td>
+                                        <td className="px-6 py-4 text-right">
+                                            <div className="flex items-center justify-end gap-2 text-sm text-gray-300">
+                                                <Layers size={14} className="text-gray-500" />
+                                                {(container.memory_usage / 1024 / 1024).toFixed(1)} MB
+                                            </div>
+                                            <div className="text-xs text-gray-500 mt-0.5">
+                                                Limit: {(container.memory_limit / 1024 / 1024 / 1024).toFixed(1)} GB
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ))
                             )}
                         </tbody>
                     </table>
                 </div>
             </div>
-
-            {/* Logs Modal */}
-            {selectedContainer && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-                    <div className="bg-[#1e293b] w-full max-w-4xl rounded-2xl shadow-2xl border border-gray-700 flex flex-col max-h-[80vh]">
-                        <div className="flex items-center justify-between p-4 border-b border-gray-700">
-                            <h3 className="text-lg font-semibold text-white flex items-center gap-2">
-                                <FileText className="w-5 h-5 text-blue-400" />
-                                Container Logs
-                            </h3>
-                            <button
-                                onClick={() => setSelectedContainer(null)}
-                                className="text-gray-400 hover:text-white transition-colors"
-                            >
-                                <X size={20} />
-                            </button>
-                        </div>
-                        <div className="p-4 flex-1 overflow-auto bg-black/30 font-mono text-sm text-gray-300 whitespace-pre-wrap">
-                            {loadingLogs ? (
-                                <div className="flex items-center justify-center h-40">
-                                    <Loader className="w-8 h-8 text-blue-400 animate-spin" />
-                                </div>
-                            ) : (
-                                logs || "No logs available."
-                            )}
-                        </div>
-                    </div>
-                </div>
-            )}
         </div>
     );
 };

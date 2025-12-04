@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Shield, AlertTriangle, Lock, Activity } from 'lucide-react';
-import axios from 'axios';
-import { type System } from '../../utils/api';
+import { client } from '../../utils/api';
 
 interface Fail2BanStats {
     total_bans: number;
@@ -18,10 +17,10 @@ interface AuthLog {
 }
 
 interface SecuritySectionProps {
-    system: System;
+    systemId: number;
 }
 
-const SecuritySection: React.FC<SecuritySectionProps> = ({ system }) => {
+const SecuritySection: React.FC<SecuritySectionProps> = ({ systemId }) => {
     const [fail2ban, setFail2ban] = useState<Fail2BanStats | null>(null);
     const [authLogs, setAuthLogs] = useState<AuthLog[]>([]);
     const [loading, setLoading] = useState(true);
@@ -29,25 +28,17 @@ const SecuritySection: React.FC<SecuritySectionProps> = ({ system }) => {
     useEffect(() => {
         const fetchData = async () => {
             try {
-                const config = {
-                    headers: { 'Authorization': `Bearer ${system.api_key}` }
-                };
-
                 // Fetch Fail2Ban
-                const f2bResponse = await axios.get(`${system.url}/api/v1/security/fail2ban`, {
-                    ...config,
-                    params: { path: '/var/log/fail2ban.log' }
+                const f2bResponse = await client.get(`/systems/${systemId}/proxy`, {
+                    params: { path: '/security/fail2ban' }
                 });
                 setFail2ban(f2bResponse.data);
 
                 // Fetch Auth Logs
-                // Note: The agent might not have this endpoint yet, or it might be different.
-                // Assuming /security/logins exists or similar. 
-                // If not, we might need to skip or implement it in agent.
-                // For now, let's assume it's not implemented in agent yet or use a placeholder if it fails.
-                // Actually, looking at agent code (viewed earlier), I saw /security/fail2ban but not /security/logins.
-                // I'll comment out Auth Logs for now to avoid errors if endpoint missing.
-                setAuthLogs([]);
+                const authResponse = await client.get(`/systems/${systemId}/proxy`, {
+                    params: { path: '/security/logins' }
+                });
+                setAuthLogs(authResponse.data);
 
             } catch (error) {
                 console.error("Failed to fetch security stats", error);
@@ -57,7 +48,7 @@ const SecuritySection: React.FC<SecuritySectionProps> = ({ system }) => {
         };
 
         fetchData();
-    }, [system]);
+    }, [systemId]);
 
     if (loading) return <div className="p-4 text-gray-400">Loading security stats...</div>;
 

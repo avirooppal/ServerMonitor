@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/user/server-moni/internal/auth"
 	"github.com/user/server-moni/internal/db"
 	"github.com/user/server-moni/internal/metrics"
 )
@@ -17,20 +18,21 @@ import (
 func RegisterRoutes(r *gin.Engine) {
 	api := r.Group("/api/v1")
 	
-	// Public Routes (No Auth)
-	api.GET("/metrics", GetMetrics)
-	api.GET("/systems", GetSystems)
-	api.POST("/systems", AddSystem)
-	api.DELETE("/systems/:id", DeleteSystem)
-	api.GET("/systems/:id/proxy", ProxyRequest)
+	authenticated := api.Group("/")
+	authenticated.Use(auth.AuthMiddleware())
+	{
+		authenticated.POST("/verify-key", func(c *gin.Context) {
+			c.JSON(http.StatusOK, gin.H{"status": "valid"})
+		})
+		authenticated.GET("/metrics", GetMetrics)
+		authenticated.GET("/systems", GetSystems)
+		authenticated.POST("/systems", AddSystem)
+		authenticated.DELETE("/systems/:id", DeleteSystem)
+		authenticated.GET("/systems/:id/proxy", ProxyRequest)
+	}
 }
 
-// --- System Handlers ---
-
 func AddSystem(c *gin.Context) {
-	// Public Dashboard: User ID is always 0 (Global)
-	userID := 0
-	
 	var req struct {
 		Name   string `json:"name"`
 		URL    string `json:"url"`
@@ -41,7 +43,7 @@ func AddSystem(c *gin.Context) {
 		return
 	}
 
-	id, err := db.AddSystem(userID, req.Name, req.URL, strings.TrimSpace(req.APIKey))
+	id, err := db.AddSystem(req.Name, req.URL, strings.TrimSpace(req.APIKey))
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to add system"})
 		return
@@ -51,9 +53,7 @@ func AddSystem(c *gin.Context) {
 }
 
 func GetSystems(c *gin.Context) {
-	userID := 0
-	
-	systems, err := db.GetSystems(userID)
+	systems, err := db.GetSystems()
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch systems"})
 		return
@@ -62,7 +62,6 @@ func GetSystems(c *gin.Context) {
 }
 
 func DeleteSystem(c *gin.Context) {
-	userID := 0
 	idStr := c.Param("id")
 	id, err := strconv.Atoi(idStr)
 	if err != nil {
@@ -70,7 +69,7 @@ func DeleteSystem(c *gin.Context) {
 		return
 	}
 
-	if err := db.DeleteSystem(id, userID); err != nil {
+	if err := db.DeleteSystem(id); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete system"})
 		return
 	}
@@ -78,7 +77,6 @@ func DeleteSystem(c *gin.Context) {
 }
 
 func GetMetrics(c *gin.Context) {
-	userID := 0
 	systemIDStr := c.Query("system_id")
 	if systemIDStr == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "system_id is required"})
@@ -91,7 +89,7 @@ func GetMetrics(c *gin.Context) {
 		return
 	}
 
-	system, err := db.GetSystem(systemID, userID)
+	system, err := db.GetSystem(systemID)
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "System not found"})
 		return
@@ -128,7 +126,6 @@ func GetMetrics(c *gin.Context) {
 }
 
 func ProxyRequest(c *gin.Context) {
-	userID := 0
 	systemIDStr := c.Param("id")
 	path := c.Query("path")
 	if path == "" {
@@ -142,31 +139,34 @@ func ProxyRequest(c *gin.Context) {
 		return
 	}
 
-	system, err := db.GetSystem(systemID, userID)
+	system, err := db.GetSystem(systemID)
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "System not found"})
 		return
 	}
 
-	// Construct target URL
-	targetURL := fmt.Sprintf("%s%s", system.URL, path)
+	// Proxy to Agent
+	client := &http.Client{Timeout: 10 * time.Second}
+	targetURL := system.URL + "/api/v1" + path
 	
-	// Create request
-	req, err := http.NewRequest(c.Request.Method, targetURL, c.Request.Body)
+	req, err := http.NewRequest("GET", targetURL, nil)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create request"})
 		return
 	}
-
-	// Copy headers
-	for k, v := range c.Request.Header {
-		req.Header[k] = v
-	}
-	
-	// Add Agent Auth
 	req.Header.Set("Authorization", "Bearer "+system.APIKey)
 
-	client := &http.Client{Timeout: 10 * time.Second}
+	// Copy query params
+	q := req.URL.Query()
+	for k, v := range c.Request.URL.Query() {
+		if k != "path" {
+			for _, val := range v {
+				q.Add(k, val)
+			}
+		}
+	}
+	req.URL.RawQuery = q.Encode()
+
 	resp, err := client.Do(req)
 	if err != nil {
 		c.JSON(http.StatusBadGateway, gin.H{"error": fmt.Sprintf("Failed to connect to agent: %v", err)})
@@ -174,12 +174,12 @@ func ProxyRequest(c *gin.Context) {
 	}
 	defer resp.Body.Close()
 
-	// Copy response headers
-	for k, v := range resp.Header {
-		c.Header(k, v[0])
-	}
+	// Stream response back
 	c.Status(resp.StatusCode)
-	
-	// Copy body
-	io.Copy(c.Writer, resp.Body)
+	for k, v := range resp.Header {
+		for _, val := range v {
+			c.Writer.Header().Add(k, val)
+		}
+	}
+	_, _ = io.Copy(c.Writer, resp.Body)
 }

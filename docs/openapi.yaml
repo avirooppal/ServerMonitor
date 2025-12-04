@@ -1,0 +1,331 @@
+openapi: 3.0.0
+info:
+  title: Server Monitor API
+  description: API for the Server Monitor application.
+  version: 1.0.0
+servers:
+  - url: http://localhost:8080/api/v1
+    description: Local Development Server
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: API Key
+
+  schemas:
+    SystemMetrics:
+      type: object
+      properties:
+        cpu:
+          type: array
+          items:
+            type: number
+        cpu_total:
+          type: number
+        load_avg:
+          $ref: '#/components/schemas/LoadAvg'
+        memory:
+          $ref: '#/components/schemas/MemoryInfo'
+        swap:
+          $ref: '#/components/schemas/SwapInfo'
+        disks:
+          type: array
+          items:
+            $ref: '#/components/schemas/DiskInfo'
+        network:
+          $ref: '#/components/schemas/NetworkStats'
+        processes:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProcessInfo'
+        containers:
+          type: array
+          items:
+            $ref: '#/components/schemas/ContainerInfo'
+        host_info:
+          $ref: '#/components/schemas/HostInfo'
+        last_update:
+          type: string
+          format: date-time
+
+    LoadAvg:
+      type: object
+      properties:
+        load1:
+          type: number
+        load5:
+          type: number
+        load15:
+          type: number
+
+    MemoryInfo:
+      type: object
+      properties:
+        total:
+          type: number
+        available:
+          type: number
+        used:
+          type: number
+        usedPercent:
+          type: number
+        free:
+          type: number
+        buffers:
+          type: number
+        cached:
+          type: number
+
+    SwapInfo:
+      type: object
+      properties:
+        total:
+          type: number
+        used:
+          type: number
+        free:
+          type: number
+        usedPercent:
+          type: number
+
+    DiskInfo:
+      type: object
+      properties:
+        path:
+          type: string
+        total:
+          type: number
+        used:
+          type: number
+        free:
+          type: number
+        used_percent:
+          type: number
+        read_rate:
+          type: number
+        write_rate:
+          type: number
+
+    NetworkStats:
+      type: object
+      properties:
+        interfaces:
+          type: array
+          items:
+            $ref: '#/components/schemas/NetInterface'
+        total_recv:
+          type: number
+        total_sent:
+          type: number
+
+    NetInterface:
+      type: object
+      properties:
+        name:
+          type: string
+        recv_rate:
+          type: number
+        sent_rate:
+          type: number
+
+    ProcessInfo:
+      type: object
+      properties:
+        pid:
+          type: number
+        name:
+          type: string
+        cpu:
+          type: number
+        mem:
+          type: number
+        username:
+          type: string
+
+    ContainerInfo:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        image:
+          type: string
+        state:
+          type: string
+        status:
+          type: string
+        created:
+          type: number
+        cpu_percent:
+          type: number
+        memory_usage:
+          type: number
+        memory_limit:
+          type: number
+
+    HostInfo:
+      type: object
+      properties:
+        hostname:
+          type: string
+        uptime:
+          type: number
+        bootTime:
+          type: number
+        procs:
+          type: number
+        os:
+          type: string
+        platform:
+          type: string
+        platformFamily:
+          type: string
+        platformVersion:
+          type: string
+        kernelVersion:
+          type: string
+        kernelArch:
+          type: string
+        virtualizationSystem:
+          type: string
+        virtualizationRole:
+          type: string
+        hostId:
+          type: string
+
+    System:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        url:
+          type: string
+        api_key:
+          type: string
+
+paths:
+  /verify-key:
+    post:
+      summary: Verify API Key
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Valid API Key
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: valid
+
+  /metrics:
+    get:
+      summary: Get System Metrics
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: query
+          name: system_id
+          schema:
+            type: integer
+          required: true
+          description: ID of the system to fetch metrics for
+      responses:
+        '200':
+          description: System Metrics
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SystemMetrics'
+
+  /systems:
+    get:
+      summary: List Monitored Systems
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: List of systems
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/System'
+    post:
+      summary: Add Monitored System
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                url:
+                  type: string
+                api_key:
+                  type: string
+      responses:
+        '200':
+          description: System Added
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: integer
+
+  /systems/{id}:
+    delete:
+      summary: Delete Monitored System
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          schema:
+            type: integer
+          required: true
+          description: ID of the system to delete
+      responses:
+        '200':
+          description: System Deleted
+
+  /systems/{id}/proxy:
+    get:
+      summary: Proxy Request to Agent
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          schema:
+            type: integer
+          required: true
+          description: ID of the system to proxy to
+        - in: query
+          name: path
+          schema:
+            type: string
+          required: true
+          description: Path on the agent to proxy to (e.g., /docker/containers/123/logs)
+      responses:
+        '200':
+          description: Proxied Response
+          content:
+            application/json:
+              schema:
+                type: object

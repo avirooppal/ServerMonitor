@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { fetchMetrics, getSystems, type System } from '../utils/api';
+import { fetchMetrics, fetchSystems, type System } from '../utils/api';
 import type { SystemMetrics } from '../types';
 import { Activity, Cpu, HardDrive, Server, Layers, Settings, LogOut, LayoutDashboard, Box, Shield } from 'lucide-react';
 import clsx from 'clsx';
@@ -42,39 +42,41 @@ export const Dashboard: React.FC<DashboardProps> = ({ onLogout }) => {
     const [error, setError] = useState('');
 
     useEffect(() => {
-        const loadSystems = () => {
-            const list = getSystems();
-            setSystems(list);
+        const loadSystems = async () => {
+            try {
+                const list = await fetchSystems();
+                setSystems(list);
 
-            // If list is empty, clear selection
-            if (list.length === 0) {
-                setSelectedSystemId('');
-                return;
-            }
+                // If list is empty, clear selection
+                if (list.length === 0) {
+                    setSelectedSystemId('');
+                    return;
+                }
 
-            // If no selection or invalid selection, select first
-            if (!selectedSystemId || !list.find(s => s.id === selectedSystemId)) {
-                setSelectedSystemId(list[0].id);
+                // If no selection or invalid selection, select first
+                if (!selectedSystemId || !list.find(s => s.id.toString() === selectedSystemId)) {
+                    setSelectedSystemId(list[0].id.toString());
+                }
+            } catch (e) {
+                console.error("Failed to fetch systems", e);
             }
         };
         loadSystems();
         // Refresh systems list occasionally in case added from another tab
-        const interval = setInterval(loadSystems, 2000);
+        const interval = setInterval(loadSystems, 10000);
         return () => clearInterval(interval);
     }, [selectedSystemId]);
 
     useEffect(() => {
         if (!selectedSystemId && activeTab !== 'settings') {
+            // If no system selected and not in settings, maybe redirect or show empty state
             return;
         }
 
         const load = async () => {
             if (!selectedSystemId) return;
-            const system = systems.find(s => s.id === selectedSystemId);
-            if (!system) return;
-
             try {
-                const data = await fetchMetrics(system);
+                const data = await fetchMetrics(selectedSystemId);
                 setMetrics(data);
                 setError('');
             } catch (err) {
@@ -86,9 +88,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onLogout }) => {
         load();
         const interval = setInterval(load, refreshRate);
         return () => clearInterval(interval);
-    }, [refreshRate, selectedSystemId, activeTab, systems]);
-
-    const selectedSystem = systems.find(s => s.id === selectedSystemId);
+    }, [refreshRate, selectedSystemId, activeTab]);
 
     return (
         <div className="flex flex-col h-screen bg-background text-gray-100 overflow-hidden font-sans selection:bg-primary/30">
@@ -191,23 +191,20 @@ export const Dashboard: React.FC<DashboardProps> = ({ onLogout }) => {
                         {activeTab === 'disk' && <DiskSection metrics={metrics} />}
                         {activeTab === 'network' && <NetworkSection metrics={metrics} />}
                         {activeTab === 'processes' && <ProcessSection metrics={metrics} />}
-
-                        {activeTab === 'docker' && selectedSystem && (
+                        {activeTab === 'docker' && selectedSystemId && systems.find(s => s.id.toString() === selectedSystemId) && (
                             <DockerSection
                                 metrics={metrics}
-                                system={selectedSystem}
+                                systemId={Number(selectedSystemId)}
                             />
                         )}
-
-                        {activeTab === 'security' && selectedSystem && (
+                        {activeTab === 'security' && selectedSystemId && systems.find(s => s.id.toString() === selectedSystemId) && (
                             <SecuritySection
-                                system={selectedSystem}
+                                systemId={Number(selectedSystemId)}
                             />
                         )}
-
-                        {activeTab === 'disk-analysis' && selectedSystem && (
+                        {activeTab === 'disk-analysis' && selectedSystemId && systems.find(s => s.id.toString() === selectedSystemId) && (
                             <DiskAnalysisSection
-                                system={selectedSystem}
+                                systemId={Number(selectedSystemId)}
                             />
                         )}
                     </div>
