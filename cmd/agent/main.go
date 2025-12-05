@@ -19,7 +19,10 @@ import (
 
 var logger service.Logger
 
-type program struct{}
+type program struct {
+	ServerURL string
+	Token     string
+}
 
 func (p *program) Start(s service.Service) error {
 	// Start should not block. Do the actual work async.
@@ -33,9 +36,6 @@ func (p *program) run() {
 	// Ensure data dir exists
 	os.MkdirAll("data", 0755)
 	db.InitDB()
-
-	// Initialize Auth
-
 
 	// Initialize Metric Store
 	metrics.InitStore()
@@ -57,18 +57,11 @@ func (p *program) run() {
 	serverURL := os.Getenv("SERVER_URL")
 	apiKey := os.Getenv("API_KEY")
 
-	// Check flags if env vars are empty
-	var flagServer, flagToken, flagService string
-	flag.StringVar(&flagServer, "server", "", "Server URL")
-	flag.StringVar(&flagToken, "token", "", "API Key")
-	flag.StringVar(&flagService, "service", "", "Service action: install, uninstall, start, stop")
-	flag.Parse()
-
 	if serverURL == "" {
-		serverURL = flagServer
+		serverURL = p.ServerURL
 	}
 	if apiKey == "" {
-		apiKey = flagToken
+		apiKey = p.Token
 	}
 
 	if serverURL != "" && apiKey != "" {
@@ -108,14 +101,12 @@ func (p *program) run() {
 	}
 
 	// Only run web server if NOT controlling service or if running as service
-	if flagService == "" {
-		go func() {
-			log.Printf("Agent running on port %s", port)
-			if err := r.Run(":" + port); err != nil {
-				log.Printf("Web server error: %v", err)
-			}
-		}()
-	}
+	go func() {
+		log.Printf("Agent running on port %s", port)
+		if err := r.Run(":" + port); err != nil {
+			log.Printf("Web server error: %v", err)
+		}
+	}()
 }
 
 func (p *program) Stop(s service.Service) error {
@@ -137,7 +128,10 @@ func main() {
 		Arguments:   []string{"-server", flagServer, "-token", flagToken},
 	}
 
-	prg := &program{}
+	prg := &program{
+		ServerURL: flagServer,
+		Token:     flagToken,
+	}
 	s, err := service.New(prg, svcConfig)
 	if err != nil {
 		log.Fatal(err)
