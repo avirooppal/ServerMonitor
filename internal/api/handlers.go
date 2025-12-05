@@ -97,6 +97,7 @@ func AddSystem(c *gin.Context) {
 	var req struct {
 		Name   string `json:"name"`
 		URL    string `json:"url"`
+		APIKey string `json:"api_key"`
 	}
 	if err := c.BindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -104,8 +105,15 @@ func AddSystem(c *gin.Context) {
 	}
 
 	// For Push agents, we use the User's API Key.
-	// We store it in the system record for reference.
-	id, err := db.AddSystem(userID, req.Name, req.URL, userAPIKey)
+	// But for Pull agents (which we are adding here), we need the AGENT'S API Key.
+	// The frontend sends the Agent's API Key in the request body.
+	// If it's empty, we might default to User's key (for push), but let's prefer the one sent.
+	systemAPIKey := req.APIKey
+	if systemAPIKey == "" {
+		systemAPIKey = userAPIKey
+	}
+
+	id, err := db.AddSystem(userID, req.Name, req.URL, systemAPIKey)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to add system"})
 		return
