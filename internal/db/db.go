@@ -135,7 +135,7 @@ func GetSystemByAPIKey(apiKey string) (*System, error) {
 	return &s, nil
 }
 
-func DeleteSystem(userID int, id string) error {
+func DeleteSystem(userID int, id int) error {
 	_, err := DB.Exec("DELETE FROM systems WHERE id = ? AND user_id = ?", id, userID)
 	return err
 }

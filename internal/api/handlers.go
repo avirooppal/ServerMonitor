@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -109,9 +110,12 @@ func AddSystem(c *gin.Context) {
 	// The frontend sends the Agent's API Key in the request body.
 	// If it's empty, we might default to User's key (for push), but let's prefer the one sent.
 	systemAPIKey := req.APIKey
+	systemAPIKey := req.APIKey
 	if systemAPIKey == "" {
 		systemAPIKey = userAPIKey
 	}
+	
+	log.Printf("Adding System: Name=%s, URL=%s, Key=%s", req.Name, req.URL, systemAPIKey)
 
 	id, err := db.AddSystem(userID, req.Name, req.URL, systemAPIKey)
 	if err != nil {
@@ -138,8 +142,16 @@ func DeleteSystem(c *gin.Context) {
 	user, _ := c.Get("user")
 	userID := user.(*auth.User).ID
 	idStr := c.Param("id")
+	
+	// Convert to int to be safe
+	id, err := strconv.Atoi(idStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid ID"})
+		return
+	}
 
-	if err := db.DeleteSystem(userID, idStr); err != nil {
+	if err := db.DeleteSystem(userID, id); err != nil {
+		log.Printf("DeleteSystem Failed: UserID=%d, ID=%d, Error=%v", userID, id, err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete system"})
 		return
 	}
