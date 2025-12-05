@@ -71,7 +71,8 @@ func (c *Collector) Collect() SystemMetrics {
 	metrics.HostInfo = h
 
 	// CPU
-	cpuPerc, _ := cpu.Percent(0, true)
+	// Use 1s interval to get accurate reading, preventing 100% spikes
+	cpuPerc, _ := cpu.Percent(1*time.Second, true)
 	
 	var total float64
 	for _, p := range cpuPerc {
