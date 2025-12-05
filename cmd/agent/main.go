@@ -58,9 +58,10 @@ func (p *program) run() {
 	apiKey := os.Getenv("API_KEY")
 
 	// Check flags if env vars are empty
-	var flagServer, flagToken string
+	var flagServer, flagToken, flagService string
 	flag.StringVar(&flagServer, "server", "", "Server URL")
 	flag.StringVar(&flagToken, "token", "", "API Key")
+	flag.StringVar(&flagService, "service", "", "Service action: install, uninstall, start, stop")
 	flag.Parse()
 
 	if serverURL == "" {
@@ -76,6 +77,7 @@ func (p *program) run() {
 
 	// Setup Web Server
 	r := gin.Default()
+	// ... (cors config) ...
 	r.Use(cors.New(cors.Config{
 		AllowOrigins:     []string{"*"},
 		AllowMethods:     []string{"GET", "OPTIONS"},
@@ -100,29 +102,39 @@ func (p *program) run() {
 		c.JSON(http.StatusOK, data)
 	})
 
-	// Other endpoints... (omitted for brevity, can add back if needed)
-
 	port := os.Getenv("API_PORT")
 	if port == "" {
 		port = "8080"
 	}
 
-	log.Printf("Agent running on port %s", port)
-	if err := r.Run(":" + port); err != nil {
-		log.Fatal(err)
+	// Only run web server if NOT controlling service or if running as service
+	if flagService == "" {
+		go func() {
+			log.Printf("Agent running on port %s", port)
+			if err := r.Run(":" + port); err != nil {
+				log.Printf("Web server error: %v", err)
+			}
+		}()
 	}
 }
 
 func (p *program) Stop(s service.Service) error {
-	// Stop should not block. Return with a few seconds.
 	return nil
 }
 
 func main() {
+	// Parse flags first to get config for service arguments
+	var flagServer, flagToken, flagService string
+	flag.StringVar(&flagServer, "server", "", "Server URL")
+	flag.StringVar(&flagToken, "token", "", "API Key")
+	flag.StringVar(&flagService, "service", "", "Service action: install, uninstall, start, stop")
+	flag.Parse()
+
 	svcConfig := &service.Config{
 		Name:        "ServerMoniAgent",
 		DisplayName: "Server Monitor Agent",
 		Description: "Agent for Server Monitor SaaS",
+		Arguments:   []string{"-server", flagServer, "-token", flagToken},
 	}
 
 	prg := &program{}
@@ -136,9 +148,8 @@ func main() {
 	}
 
 	// Handle Service Control Flags
-	if len(os.Args) > 1 {
-		cmd := os.Args[1]
-		switch cmd {
+	if flagService != "" {
+		switch flagService {
 		case "install":
 			err = s.Install()
 			if err != nil {
