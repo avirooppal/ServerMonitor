@@ -37,6 +37,7 @@ chmod +x /usr/local/bin/server-moni
 mkdir -p /var/lib/server-moni
 mkdir -p /var/lib/server-moni/downloads
 cp agent-linux-amd64 /var/lib/server-moni/downloads/agent-linux-amd64
+cp scripts/install_agent_linux.sh /var/lib/server-moni/downloads/install_agent_linux.sh
 
 # Create Systemd Service
 echo "Creating Service..."
