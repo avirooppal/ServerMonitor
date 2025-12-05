@@ -90,9 +90,11 @@ func AuthMiddleware() gin.HandlerFunc {
 		// Validate User
 		user, err := GetUserByAPIKey(apiKey)
 		if err != nil {
+			log.Printf("Auth Failed: Invalid API Key: %s. Error: %v", apiKey, err)
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Invalid API Key"})
 			return
 		}
+		log.Printf("Auth Success: User %s (ID: %d)", user.Username, user.ID)
 
 		// Store user in context
 		c.Set("user", user)
