@@ -78,7 +78,8 @@ export const login = async (email: string, password: string) => {
         console.log('Token found in response, saving...');
         setApiKey(response.data.token);
     } else {
-        console.error('No token in login response!');
+        console.error('No token in login response!', response.data);
+        throw new Error('Login succeeded but no token received from server.');
     }
     return response.data;
 };
