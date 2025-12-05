@@ -32,48 +32,20 @@ func InitDB() {
 		value TEXT
 	);`
 
-	createUsersTable := `CREATE TABLE IF NOT EXISTS users (
-		id INTEGER PRIMARY KEY AUTOINCREMENT,
-		username TEXT UNIQUE NOT NULL,
-		password_hash TEXT NOT NULL,
-		api_key TEXT UNIQUE NOT NULL,
-		created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-	);`
-
-	// We need to add user_id to systems. 
-	// For existing tables, we might need a migration, but for this "clean slate" approach:
 	createSystemsTable := `CREATE TABLE IF NOT EXISTS systems (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
-		user_id INTEGER,
 		name TEXT NOT NULL,
 		url TEXT NOT NULL,
 		api_key TEXT NOT NULL,
-		created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-		FOREIGN KEY(user_id) REFERENCES users(id)
+		created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 	);`
 
 	if _, err := DB.Exec(createConfigTable); err != nil {
 		log.Fatalf("Failed to create config table: %v", err)
 	}
 
-	if _, err := DB.Exec(createUsersTable); err != nil {
-		log.Fatalf("Failed to create users table: %v", err)
-	}
-
 	if _, err := DB.Exec(createSystemsTable); err != nil {
 		log.Fatalf("Failed to create systems table: %v", err)
-	}
-
-	// Migration: Check if user_id column exists in systems (for existing deployments)
-	// Simple check: try to query it. If fails, add it.
-	_, err = DB.Query("SELECT user_id FROM systems LIMIT 1")
-	if err != nil {
-		// Column likely missing
-		log.Println("Migrating systems table: adding user_id column...")
-		_, err = DB.Exec("ALTER TABLE systems ADD COLUMN user_id INTEGER REFERENCES users(id)")
-		if err != nil {
-			log.Printf("Warning: Failed to add user_id column (might already exist or other error): %v", err)
-		}
 	}
 
 	InitDiskHistoryTable()
@@ -90,16 +62,16 @@ func SetConfig(key, value string) error {
 	return err
 }
 
-func AddSystem(userID int, name, url, apiKey string) (int64, error) {
-	res, err := DB.Exec("INSERT INTO systems (user_id, name, url, api_key) VALUES (?, ?, ?, ?)", userID, name, url, apiKey)
+func AddSystem(name, url, apiKey string) (int64, error) {
+	res, err := DB.Exec("INSERT INTO systems (name, url, api_key) VALUES (?, ?, ?)", name, url, apiKey)
 	if err != nil {
 		return 0, err
 	}
 	return res.LastInsertId()
 }
 
-func GetSystems(userID int) ([]System, error) {
-	rows, err := DB.Query("SELECT id, name, url, api_key, created_at FROM systems WHERE user_id = ? ORDER BY created_at DESC", userID)
+func GetSystems() ([]System, error) {
+	rows, err := DB.Query("SELECT id, name, url, api_key, created_at FROM systems ORDER BY created_at DESC")
 	if err != nil {
 		return nil, err
 	}
@@ -116,27 +88,17 @@ func GetSystems(userID int) ([]System, error) {
 	return systems, nil
 }
 
-func GetSystem(userID int, id string) (*System, error) {
+func GetSystem(id int) (*System, error) {
 	var s System
-	// id can be string from URL param, let's assume caller converts or we use string in query
-	err := DB.QueryRow("SELECT id, name, url, api_key, created_at FROM systems WHERE id = ? AND user_id = ?", id, userID).Scan(&s.ID, &s.Name, &s.URL, &s.APIKey, &s.CreatedAt)
+	err := DB.QueryRow("SELECT id, name, url, api_key, created_at FROM systems WHERE id = ?", id).Scan(&s.ID, &s.Name, &s.URL, &s.APIKey, &s.CreatedAt)
 	if err != nil {
 		return nil, err
 	}
 	return &s, nil
 }
 
-func GetSystemByAPIKey(apiKey string) (*System, error) {
-	var s System
-	err := DB.QueryRow("SELECT id, name, url, api_key, created_at FROM systems WHERE api_key = ?", apiKey).Scan(&s.ID, &s.Name, &s.URL, &s.APIKey, &s.CreatedAt)
-	if err != nil {
-		return nil, err
-	}
-	return &s, nil
-}
-
-func DeleteSystem(userID int, id int) error {
-	_, err := DB.Exec("DELETE FROM systems WHERE id = ? AND user_id = ?", id, userID)
+func DeleteSystem(id int) error {
+	_, err := DB.Exec("DELETE FROM systems WHERE id = ?", id)
 	return err
 }
 

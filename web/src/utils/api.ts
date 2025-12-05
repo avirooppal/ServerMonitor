@@ -22,17 +22,6 @@ client.interceptors.request.use((config) => {
     return config;
 });
 
-client.interceptors.response.use(
-    (response) => response,
-    (error) => {
-        if (error.response?.status === 401) {
-            localStorage.removeItem('server_moni_key');
-            window.location.reload();
-        }
-        return Promise.reject(error);
-    }
-);
-
 export interface System {
     id: number;
     name: string;
@@ -43,11 +32,7 @@ export interface System {
 
 export const fetchSystems = async (): Promise<System[]> => {
     const response = await client.get('/systems');
-    if (!Array.isArray(response.data)) {
-        console.error("Expected array from /systems, got:", response.data);
-        throw new Error("Invalid response format");
-    }
-    return response.data;
+    return response.data || [];
 };
 
 export const addSystem = async (name: string, url: string, apiKey: string) => {
@@ -79,14 +64,4 @@ export const verifyKey = async (key: string) => {
     });
     await testClient.post('/verify-key');
     return true;
-};
-
-export const login = async (username: string, password: string): Promise<string> => {
-    const response = await client.post('/login', { username, password });
-    return response.data.api_key;
-};
-
-export const register = async (username: string, password: string): Promise<string> => {
-    const response = await client.post('/register', { username, password });
-    return response.data.api_key;
 };
