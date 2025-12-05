@@ -4,11 +4,14 @@ const API_URL = import.meta.env.VITE_API_URL || '/api/v1';
 console.log('API_URL:', API_URL);
 
 export const setApiKey = (key: string) => {
+    console.log('Setting API Key:', key);
     localStorage.setItem('server_moni_key', key);
 };
 
 export const getApiKey = () => {
-    return localStorage.getItem('server_moni_key');
+    const key = localStorage.getItem('server_moni_key');
+    console.log('Getting API Key:', key ? 'Found' : 'Not Found');
+    return key;
 };
 
 export const client = axios.create({
@@ -18,7 +21,10 @@ export const client = axios.create({
 client.interceptors.request.use((config) => {
     const key = getApiKey();
     if (key) {
+        console.log('Attaching Authorization Header');
         config.headers.Authorization = `Bearer ${key.trim()}`;
+    } else {
+        console.warn('No API Key found for request');
     }
     return config;
 });
