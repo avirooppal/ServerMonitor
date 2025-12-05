@@ -57,7 +57,7 @@ export const fetchStatus = async () => {
     return { status: 'ok' };
 };
 
-export const verifyKey = async (key: string) => {
+export const verifyKey = async (_key: string) => {
     // Legacy verification, might not be needed for User Token
     return true;
 };

@@ -22,7 +22,7 @@ export const Register: React.FC<RegisterProps> = ({ onRegister, onSwitchToLogin 
             // For now, just switch to login view or notify success.
             // Actually, let's just switch to login.
             alert('Registration successful! Please login.');
-            onSwitchToLogin();
+            onRegister();
         } catch (err: any) {
             setError(err.response?.data?.error || 'Registration failed');
         } finally {
