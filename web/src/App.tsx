@@ -31,7 +31,7 @@ function App() {
   if (loading) return null;
 
   return (
-    <div className="min-h-screen bg-gray-900 text-white font-sans">
+    <div className="min-h-screen bg-gray-900 text-white font-sans relative">
       {isAuthenticated ? (
         <Dashboard onLogout={handleLogout} />
       ) : view === 'login' ? (
@@ -39,6 +39,7 @@ function App() {
       ) : (
         <Register onRegister={() => setView('login')} onSwitchToLogin={() => setView('login')} />
       )}
+      <div className="absolute bottom-2 right-2 text-xs text-gray-600 pointer-events-none">v1.1</div>
     </div>
   );
 }

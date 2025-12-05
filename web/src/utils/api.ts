@@ -20,8 +20,9 @@ export const client = axios.create({
 
 client.interceptors.request.use((config) => {
     const key = getApiKey();
+    config.headers = config.headers || {};
     if (key) {
-        console.log('Attaching Authorization Header');
+        console.log('Attaching Authorization Header:', key.substring(0, 5) + '...');
         config.headers.Authorization = `Bearer ${key.trim()}`;
     } else {
         console.warn('No API Key found for request');
