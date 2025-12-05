@@ -53,6 +53,7 @@ chmod +x /usr/local/bin/server-moni
 
 # Create Data Directory
 mkdir -p /var/lib/server-moni
+mkdir -p /var/lib/server-moni/data
 mkdir -p /var/lib/server-moni/downloads
 
 # Copy Agents to Downloads
