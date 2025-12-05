@@ -72,13 +72,15 @@ func (c *Collector) Collect() SystemMetrics {
 
 	// CPU
 	cpuPerc, _ := cpu.Percent(0, true)
-	cpuTotal, _ := cpu.Percent(0, false)
-	l, _ := load.Avg()
-
-	metrics.CPU = cpuPerc
-	if len(cpuTotal) > 0 {
-		metrics.CPUTotal = cpuTotal[0]
+	
+	var total float64
+	for _, p := range cpuPerc {
+		total += p
 	}
+	if len(cpuPerc) > 0 {
+		metrics.CPUTotal = total / float64(len(cpuPerc))
+	}
+	metrics.CPU = cpuPerc
 	metrics.LoadAvg = l
 
 	// Memory
