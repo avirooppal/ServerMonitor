@@ -3,30 +3,16 @@ package db
 import (
 	"database/sql"
 	"log"
+	"os"
 	"time"
 
 	_ "modernc.org/sqlite"
 )
 
-var DB *sql.DB
-
-type User struct {
-	ID           int       `json:"id"`
-	Email        string    `json:"email"`
-	PasswordHash string    `json:"-"`
-	CreatedAt    time.Time `json:"created_at"`
-}
-
-type System struct {
-	ID        int       `json:"id"`
-	UserID    int       `json:"user_id"`
-	Name      string    `json:"name"`
-	URL       string    `json:"url"`
-	APIKey    string    `json:"api_key"`
-	CreatedAt time.Time `json:"created_at"`
-}
+// ... (omitted types)
 
 func InitDB() {
+	os.MkdirAll("data", 0755)
 	dbPath := "data/server-moni.db"
 	
 	var err error
