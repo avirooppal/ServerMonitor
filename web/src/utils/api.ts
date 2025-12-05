@@ -1,6 +1,7 @@
 import axios from 'axios';
 
-const API_URL = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? '/api/v1' : 'http://localhost:8080/api/v1');
+const API_URL = import.meta.env.VITE_API_URL || '/api/v1';
+console.log('API_URL:', API_URL);
 
 export const setApiKey = (key: string) => {
     localStorage.setItem('server_moni_key', key);
