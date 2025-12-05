@@ -24,6 +24,10 @@ mkdir -p cmd/server/dist
 cp -r web/dist/* cmd/server/dist/
 go build -o server-moni ./cmd/server
 
+# Build Agent (Linux AMD64)
+echo "Building Agent..."
+GOOS=linux GOARCH=amd64 go build -o agent-linux-amd64 ./cmd/agent
+
 # Install Binary
 echo "Installing Binary..."
 cp server-moni /usr/local/bin/server-moni
@@ -32,6 +36,7 @@ chmod +x /usr/local/bin/server-moni
 # Create Data Directory
 mkdir -p /var/lib/server-moni
 mkdir -p /var/lib/server-moni/downloads
+cp agent-linux-amd64 /var/lib/server-moni/downloads/agent-linux-amd64
 
 # Create Systemd Service
 echo "Creating Service..."
