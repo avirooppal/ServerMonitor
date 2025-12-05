@@ -36,7 +36,7 @@ func (p *program) run() {
 	db.InitDB()
 
 	// Initialize Auth
-	auth.InitAuth()
+
 
 	// Initialize Metric Store
 	metrics.InitStore()

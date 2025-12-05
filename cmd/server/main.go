@@ -25,7 +25,7 @@ func main() {
 	db.InitDB()
 
 	// Initialize Auth (Generate Key if needed)
-	auth.InitAuth()
+
 
 	// Initialize Metric Store
 	metrics.InitStore()
