@@ -1,133 +1,226 @@
 # Server Monitor
 
-![License](https://img.shields.io/badge/license-MIT-blue.svg)
-![Go](https://img.shields.io/badge/backend-Go-00ADD8.svg)
-![React](https://img.shields.io/badge/frontend-React-61DAFB.svg)
-![Docker](https://img.shields.io/badge/deployment-Docker-2496ED.svg)
-
-**Server Monitor** is a lightweight, self-hosted infrastructure monitoring solution. It provides a centralized dashboard to track the health and performance of your Linux servers in real-time.
-
-![Dashboard Preview](https://github.com/user-attachments/assets/2779b9a6-8ab2-407e-9a9a-f44ffc6afcbe)
-
----
+Server Monitor is a lightweight, self-hosted infrastructure monitoring solution. It provides a centralized dashboard to track the health and performance of your Linux and Windows servers in real-time.
 
 ## Features
 
 - **Real-Time Metrics**: Monitor CPU, RAM, Disk, and Network usage with live updates.
 - **Multi-Server Support**: Manage unlimited servers from a single dashboard.
-- **Lightweight Agent**: Low-overhead Go-based agent (~10MB) that runs on any Linux distribution.
+- **Cross-Platform Agent**: Lightweight Go-based agent that runs on Linux and Windows.
 - **Secure Architecture**:
-    - **Master API Key**: Protects the dashboard from unauthorized access.
+    - **User Authentication**: Secure login and registration system.
     - **Agent Tokens**: Unique, auto-generated keys ensure secure communication between agents and the dashboard.
-    - **Proxy Mode**: The dashboard acts as a proxy, keeping your agents secure behind firewalls without exposing extra ports.
-- **One-Click Installation**: Deploy agents instantly using a simple `curl | bash` script.
-- **Docker Native**: Built for containerized environments with easy `docker-compose` deployment.
-
----
-
-## Quick Start
-
-Get your monitoring dashboard up and running in minutes.
-
-### Prerequisites
-- A Linux server (VPS) with **Docker** and **Docker Compose** installed.
-
-### 1. Deploy the Dashboard
-Clone the repository and start the services:
-
-```bash
-git clone https://github.com/avirooppal/ServerMonitor.git
-cd ServerMonitor
-docker-compose up -d --build
-```
-
-The dashboard will be available at `http://YOUR_SERVER_IP:8082`.
-
-### 2. Initial Setup
-On the first run, a secure **Master API Key** is generated. You need this key to log in and manage the system.
-
-Retrieve the key:
-```bash
-docker exec server-moni-dashboard-1 cat data/api_key.txt
-```
-
-1. Open the Dashboard in your browser.
-2. Go to the **Settings** tab.
-3. Enter your **Master API Key**.
-
-### 3. Add Agents (Monitor Servers)
-To monitor a server (including the one hosting the dashboard), you need to install the Agent.
-
-1. In the Dashboard **Settings**, copy the **One-Click Installer** command.
-2. SSH into the target server.
-3. Run the command:
-   ```bash
-   curl -sL https://raw.githubusercontent.com/avirooppal/ServerMonitor/main/web/public/get-key.sh | bash
-   ```
-4. The script will output the **Agent Name**, **URL**, and **API Key**.
-5. Go back to the Dashboard, click **Add System**, and enter these details.
-
----
+    - **Push-Based Architecture**: Agents push data to the central server, eliminating the need for complex firewall configurations.
+- **One-Click Installation**: Deploy agents instantly using simple scripts.
 
 ## Architecture
 
-The system consists of a central Dashboard (Server) and multiple Agents (Clients).
+The system consists of three main components:
 
-```mermaid
-graph TD
-    User[User / Browser] -->|HTTPS| Dashboard[Central Dashboard]
-    Dashboard -->|Proxy Request| Agent1[Agent: DB Server]
-    Dashboard -->|Proxy Request| Agent2[Agent: Web Server]
-    Agent1 -->|Collects| Docker1[Docker Engine]
-    Agent2 -->|Collects| Docker2[Docker Engine]
+1.  **Backend (Server)**: Written in Go, using Gin framework and SQLite database. It handles API requests, authentication, and metric ingestion.
+2.  **Frontend (Dashboard)**: Built with React and Vite, hosted on Vercel. It provides the user interface for monitoring systems.
+3.  **Agent**: A lightweight Go binary running on monitored servers. It collects system metrics (via `gopsutil`) and pushes them to the Backend.
+
+## Prerequisites
+
+- **Go 1.22+** (for Backend and Agent development)
+- **Node.js 18+** (for Frontend development)
+- **GCC** (for CGO/SQLite support)
+
+## Installation and Setup
+
+### 1. Backend Setup
+
+The backend serves the API and the agent installation scripts.
+
+1.  Clone the repository:
+    ```bash
+    git clone https://github.com/avirooppal/ServerMonitor.git
+    cd ServerMonitor
+    ```
+
+2.  Install dependencies:
+    ```bash
+    go mod download
+    ```
+
+3.  Run the server:
+    ```bash
+    go run cmd/server/main.go
+    ```
+    The server will start on port `8080` (default).
+
+### 2. Frontend Setup
+
+The frontend is a React application located in the `web` directory.
+
+1.  Navigate to the web directory:
+    ```bash
+    cd web
+    ```
+
+2.  Install dependencies:
+    ```bash
+    npm install
+    ```
+
+3.  Start the development server:
+    ```bash
+    npm run dev
+    ```
+    The dashboard will be available at `http://localhost:5173`.
+
+### 3. Agent Installation
+
+To monitor a server, you need to install the agent on it.
+
+#### Linux
+
+Run the following command on your Linux server:
+
+```bash
+curl -L https://raw.githubusercontent.com/avirooppal/ServerMonitor/main/scripts/install_agent_linux.sh | sudo bash -s -- --server=http://YOUR_BACKEND_IP:8080 --token=YOUR_API_KEY
 ```
 
-- **Dashboard**: Stores configuration (SQLite), serves the UI, and proxies requests to agents.
-- **Agent**: Collects system metrics and exposes them via a secured API.
+#### Windows
 
----
+Run the following command in PowerShell (Administrator):
 
-## 🛠️ Local Development
+```powershell
+iwr https://raw.githubusercontent.com/avirooppal/ServerMonitor/main/scripts/install_agent_windows.ps1 -OutFile install.ps1; .\install.ps1 -ServerUrl http://YOUR_BACKEND_IP:8080 -Token YOUR_API_KEY
+```
 
-To run the project locally for development:
+*Note: Replace `YOUR_BACKEND_IP` and `YOUR_API_KEY` with your actual backend URL and the system API key generated from the dashboard.*
 
-1. **Start the Stack**:
-   ```bash
-   docker-compose up -d --build
-   ```
+## API Documentation
 
-2. **Access Dashboard**:
-   Open `http://localhost:8082`.
+The backend exposes a RESTful API.
 
-3. **Connect Local Agent**:
-   The local setup includes an agent running on port `8081`.
-   - **URL**: `http://agent:8080` (Internal Docker Network URL)
-   - **API Key**: `docker exec server-moni-agent-1 cat data/api_key.txt`
+### Authentication
 
----
+#### Register
+Create a new user account.
 
-## Configuration
+- **URL**: `/api/v1/auth/register`
+- **Method**: `POST`
+- **Body**:
+    ```json
+    {
+        "email": "user@example.com",
+        "password": "securepassword"
+    }
+    ```
 
-### Environment Variables
+#### Login
+Authenticate and receive a JWT token.
 
-| Service | Variable | Description | Default |
-|---------|----------|-------------|---------|
-| **Dashboard** | `PORT` | Port to serve the UI/API | `8080` |
-| **Agent** | `API_PORT` | Port for Agent API | `8080` |
-| **Agent** | `COLLECTION_INTERVAL_SECONDS` | Metrics update frequency | `5` |
+- **URL**: `/api/v1/auth/login`
+- **Method**: `POST`
+- **Body**:
+    ```json
+    {
+        "email": "user@example.com",
+        "password": "securepassword"
+    }
+    ```
+- **Response**:
+    ```json
+    {
+        "token": "eyJhbGciOiJIUzI1Ni..."
+    }
+    ```
 
----
+### Systems
 
-## Contributing
+#### Get Systems
+List all monitored systems.
 
-Contributions are welcome! Please feel free to submit a Pull Request.
+- **URL**: `/api/v1/systems`
+- **Method**: `GET`
+- **Headers**: `Authorization: Bearer <TOKEN>`
 
-1. Fork the Project
-2. Create your Feature Branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your Changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the Branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
+#### Add System
+Register a new system to monitor.
 
-## 📝 License
+- **URL**: `/api/v1/systems`
+- **Method**: `POST`
+- **Headers**: `Authorization: Bearer <TOKEN>`
+- **Body**:
+    ```json
+    {
+        "name": "Production DB",
+        "url": "push",
+        "api_key": "generated-random-key"
+    }
+    ```
 
-Distributed under the MIT License. See `LICENSE` for more information.
+### Metrics
+
+#### Get Metrics
+Retrieve the latest metrics for a specific system.
+
+- **URL**: `/api/v1/metrics?system_id=<ID>`
+- **Method**: `GET`
+- **Headers**: `Authorization: Bearer <TOKEN>`
+
+#### Ingest Metrics (Agent)
+Push metrics from the agent to the server.
+
+- **URL**: `/api/v1/ingest`
+- **Method**: `POST`
+- **Headers**: `Authorization: Bearer <SYSTEM_API_KEY>`
+- **Body**:
+    ```json
+    {
+        "cpu_usage": 45.5,
+        "memory_total": 16000000000,
+        "memory_used": 8000000000,
+        "disk_usage": 60.2
+    }
+    ```
+
+### Health Check
+
+Check if the server is running.
+
+- **URL**: `/health`
+- **Method**: `GET`
+- **Response**:
+    ```json
+    {
+        "status": "ok",
+        "time": "2023-10-27T10:00:00Z"
+    }
+    ```
+
+## Development
+
+### Directory Structure
+
+- `cmd/server`: Entry point for the backend server.
+- `cmd/agent`: Entry point for the monitoring agent.
+- `internal/api`: API handlers and router configuration.
+- `internal/auth`: Authentication logic (JWT, bcrypt).
+- `internal/db`: Database interaction (SQLite).
+- `internal/metrics`: Metric collection and storage logic.
+- `web`: React frontend application.
+- `scripts`: Installation and utility scripts.
+
+### Building
+
+To build the binaries:
+
+```bash
+# Build Server
+go build -o server-moni cmd/server/main.go
+
+# Build Agent (Linux)
+GOOS=linux GOARCH=amd64 go build -o server-moni-agent cmd/agent/main.go
+
+# Build Agent (Windows)
+GOOS=windows GOARCH=amd64 go build -o server-moni-agent.exe cmd/agent/main.go
+```
+
+## License
+
+Distributed under the MIT License.
