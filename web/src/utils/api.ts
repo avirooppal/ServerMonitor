@@ -71,9 +71,14 @@ export const verifyKey = async (_key: string) => {
 };
 
 export const login = async (email: string, password: string) => {
+    console.log('Attempting login for:', email);
     const response = await client.post('/auth/login', { email, password });
+    console.log('Login response:', response.data);
     if (response.data.token) {
+        console.log('Token found in response, saving...');
         setApiKey(response.data.token);
+    } else {
+        console.error('No token in login response!');
     }
     return response.data;
 };
