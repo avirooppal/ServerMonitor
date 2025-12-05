@@ -22,6 +22,9 @@ func RegisterRoutes(r *gin.Engine) {
 	api.POST("/auth/register", Register)
 	api.POST("/auth/login", Login)
 	
+	// Health Check
+	r.GET("/health", HealthCheck)
+	
 	// Ingestion (Agent Push) - Validates System API Key internally
 	api.POST("/ingest", IngestMetrics)
 
@@ -36,6 +39,10 @@ func RegisterRoutes(r *gin.Engine) {
 		protected.GET("/systems/:id/proxy", ProxyRequest)
 		protected.POST("/auth/logout", Logout)
 	}
+}
+
+func HealthCheck(c *gin.Context) {
+	c.JSON(http.StatusOK, gin.H{"status": "ok", "time": time.Now()})
 }
 
 // Auth Handlers
