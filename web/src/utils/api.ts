@@ -32,7 +32,11 @@ export interface System {
 
 export const fetchSystems = async (): Promise<System[]> => {
     const response = await client.get('/systems');
-    return response.data || [];
+    if (!Array.isArray(response.data)) {
+        console.error("Expected array from /systems, got:", response.data);
+        throw new Error("Invalid response format");
+    }
+    return response.data;
 };
 
 export const addSystem = async (name: string, url: string, apiKey: string) => {
