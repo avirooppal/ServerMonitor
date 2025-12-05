@@ -34,6 +34,13 @@ fi
 
 echo "Installing Server Monitor Agent..."
 
+# Stop existing service if running
+if [ -f "/usr/local/bin/server-moni-agent" ]; then
+  echo "Stopping existing agent..."
+  /usr/local/bin/server-moni-agent --service stop || true
+  /usr/local/bin/server-moni-agent --service uninstall || true
+fi
+
 # Download Binary
 echo "Downloading Agent from $SERVER_URL..."
 curl -L "$SERVER_URL/downloads/agent-linux-amd64" -o /usr/local/bin/server-moni-agent
