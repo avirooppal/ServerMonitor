@@ -25,13 +25,29 @@ sudo ./scripts/install_server_linux.sh
 
 **Option B: Upload Binary**
 If you don't want to install Go on the VPS:
-1.  **On your PC**: Run `make build-server-linux`.
-2.  **Upload**: Copy `bin/server-linux-amd64` to your VPS.
-3.  **Run**: `./server-linux-amd64` (or create a systemd service manually).
+1.  **On your PC**: Run `set GOOS=linux` then `go build -o server-moni ./cmd/server`.
+2.  **Upload**: Copy `server-moni` to your VPS.
+3.  **Run**: `./server-moni` (or create a systemd service manually).
 
 ### 2. Verify Backend
 Your backend should now be running on `http://YOUR_VPS_IP:8080`.
 *   Test it: `curl http://YOUR_VPS_IP:8080/api/v1/ping`
+
+### 3. Enable HTTPS (Required for Vercel)
+Since Vercel uses HTTPS, your backend MUST also use HTTPS.
+The easiest way (without buying a domain) is using **Cloudflare Tunnel**.
+
+**Run this on your VPS:**
+```bash
+# 1. Download cloudflared
+curl -L --output cloudflared.deb https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb
+sudo dpkg -i cloudflared.deb
+
+# 2. Start a Quick Tunnel
+cloudflared tunnel --url http://localhost:8080
+```
+*   Copy the URL that looks like `https://random-name.trycloudflare.com`.
+*   **Keep this running** (use `tmux` or a service to keep it alive).
 
 ---
 

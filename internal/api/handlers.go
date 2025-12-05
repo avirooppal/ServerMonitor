@@ -1,7 +1,6 @@
 package api
 
 import (
-	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -156,7 +155,7 @@ func IngestMetrics(c *gin.Context) {
 	apiKey := parts[1]
 
 	// Check if this API Key belongs to a User
-	user, err := auth.GetUserByAPIKey(apiKey)
+	_, err := auth.GetUserByAPIKey(apiKey)
 	if err != nil {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid API Key"})
 		return
@@ -180,7 +179,7 @@ func IngestMetrics(c *gin.Context) {
 	// But Hostnames can collide.
 	// Let's use "APIKey:Hostname" as the key in GlobalStore.
 	
-	storeKey := fmt.Sprintf("%s:%s", apiKey, data.Host.Hostname)
+	storeKey := fmt.Sprintf("%s:%s", apiKey, data.HostInfo.Hostname)
 	
 	// Also, we need to auto-register the system if it doesn't exist?
 	// The "One Command" adds the system to the DB via the Frontend *before* the agent starts?
@@ -203,10 +202,10 @@ func IngestMetrics(c *gin.Context) {
 	// systems, _ := db.GetSystems(user.ID)
 	// found := false
 	// for _, s := range systems {
-	// 	if s.Name == data.Host.Hostname { found = true; break }
+	// 	if s.Name == data.HostInfo.Hostname { found = true; break }
 	// }
 	// if !found {
-	// 	db.AddSystem(user.ID, data.Host.Hostname, "dynamic", apiKey)
+	// 	db.AddSystem(user.ID, data.HostInfo.Hostname, "dynamic", apiKey)
 	// }
 
 	c.Status(http.StatusOK)

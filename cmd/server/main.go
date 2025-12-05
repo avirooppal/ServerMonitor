@@ -15,6 +15,7 @@ import (
 	"github.com/user/server-moni/internal/auth"
 	"github.com/user/server-moni/internal/db"
 	"github.com/user/server-moni/internal/metrics"
+	"strings"
 )
 
 //go:embed all:dist
@@ -43,10 +44,17 @@ func main() {
 	// Setup Web Server
 	r := gin.Default()
 
-	// CORS for development (allow all for now, tighten later if needed)
+	// CORS configuration
 	config := cors.DefaultConfig()
-	config.AllowAllOrigins = true
+	config.AllowOriginFunc = func(origin string) bool {
+		return strings.HasSuffix(origin, ".vercel.app") || 
+			   strings.HasSuffix(origin, ".trycloudflare.com") || 
+			   origin == "http://localhost:3000" || 
+			   origin == "http://localhost:5173"
+	}
+	config.AllowMethods = []string{"GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"}
 	config.AllowHeaders = []string{"Origin", "Content-Length", "Content-Type", "Authorization"}
+	config.AllowCredentials = true
 	r.Use(cors.New(config))
 
 	// API Routes
