@@ -79,9 +79,7 @@ func main() {
 		r.GET("/vite.svg", func(c *gin.Context) {
 			c.FileFromFS("vite.svg", http.FS(distFS))
 		})
-		r.GET("/install.sh", func(c *gin.Context) {
-			c.FileFromFS("install.sh", http.FS(distFS))
-		})
+
 		r.GET("/get-key.sh", func(c *gin.Context) {
 			c.FileFromFS("get-key.sh", http.FS(distFS))
 		})
