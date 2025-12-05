@@ -56,6 +56,12 @@ func main() {
 	// API Routes
 	api.RegisterRoutes(r)
 
+	// Serve Downloads (Agent Binaries & Scripts)
+	r.Static("/downloads", "./downloads")
+	// Also serve install.sh directly from downloads for convenience
+	r.StaticFile("/install.sh", "./downloads/install_agent_linux.sh")
+
+
 	// Serve Frontend (Embedded)
 	// We assume the frontend is built into 'dist' folder and embedded.
 	// If 'dist' is not found (dev mode), we might want to skip or serve from local dir.

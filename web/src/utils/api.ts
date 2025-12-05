@@ -58,10 +58,28 @@ export const fetchStatus = async () => {
 };
 
 export const verifyKey = async (key: string) => {
-    const testClient = axios.create({
-        baseURL: API_URL,
-        headers: { Authorization: `Bearer ${key}` }
-    });
-    await testClient.post('/verify-key');
+    // Legacy verification, might not be needed for User Token
     return true;
+};
+
+export const login = async (email: string, password: string) => {
+    const response = await client.post('/auth/login', { email, password });
+    if (response.data.token) {
+        setApiKey(response.data.token);
+    }
+    return response.data;
+};
+
+export const register = async (email: string, password: string) => {
+    const response = await client.post('/auth/register', { email, password });
+    return response.data;
+};
+
+export const logout = async () => {
+    try {
+        await client.post('/auth/logout');
+    } catch (e) {
+        // ignore
+    }
+    localStorage.removeItem('server_moni_key');
 };

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { fetchMetrics, fetchSystems, type System } from '../utils/api';
+import { fetchMetrics, fetchSystems, addSystem, type System } from '../utils/api';
 import type { SystemMetrics } from '../types';
 import { Activity, Cpu, HardDrive, Server, Layers, Settings, LogOut, LayoutDashboard, Box, Shield } from 'lucide-react';
 import clsx from 'clsx';
@@ -27,7 +27,6 @@ const TABS = [
     { id: 'disk', label: 'Disks', icon: HardDrive },
     { id: 'processes', label: 'Processes', icon: Server },
     { id: 'docker', label: 'Containers', icon: Box },
-    // { id: 'services', label: 'Services', icon: Activity }, // Hidden, accessed via Alerts card
     { id: 'security', label: 'Security', icon: Shield },
     { id: 'disk-analysis', label: 'Disk Usage', icon: HardDrive },
     { id: 'settings', label: 'Settings', icon: Settings },
@@ -40,6 +39,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ onLogout }) => {
     const [activeTab, setActiveTab] = useState('overview');
     const [refreshRate, setRefreshRate] = useState(2000);
     const [error, setError] = useState('');
+
+    const [showAddModal, setShowAddModal] = useState(false);
+    const [newSystemName, setNewSystemName] = useState('');
+    const [newSystemCommand, setNewSystemCommand] = useState('');
 
     useEffect(() => {
         const loadSystems = async () => {
@@ -69,7 +72,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ onLogout }) => {
 
     useEffect(() => {
         if (!selectedSystemId && activeTab !== 'settings') {
-            // If no system selected and not in settings, maybe redirect or show empty state
             return;
         }
 
@@ -89,6 +91,29 @@ export const Dashboard: React.FC<DashboardProps> = ({ onLogout }) => {
         const interval = setInterval(load, refreshRate);
         return () => clearInterval(interval);
     }, [refreshRate, selectedSystemId, activeTab]);
+
+    const handleAddSystem = async (e: React.FormEvent) => {
+        e.preventDefault();
+        try {
+            // Generate random API Key
+            const apiKey = Math.random().toString(36).substring(2) + Math.random().toString(36).substring(2);
+            await addSystem(newSystemName, 'push', apiKey);
+
+            // Generate Command
+            const vpsUrl = 'http://107.150.20.37:8080';
+            const linuxCmd = `curl -L ${vpsUrl}/install.sh | sudo bash -s -- --server=${vpsUrl} --token=${apiKey}`;
+            const winCmd = `iwr ${vpsUrl}/downloads/install_agent_windows.ps1 -OutFile install.ps1; .\\install.ps1 -ServerUrl ${vpsUrl} -Token ${apiKey}`;
+
+            setNewSystemCommand(`Linux:\n${linuxCmd}\n\nWindows (PowerShell):\n${winCmd}`);
+            setNewSystemName('');
+            // Refresh list
+            const list = await fetchSystems();
+            setSystems(list);
+        } catch (err) {
+            console.error(err);
+            setError('Failed to add system');
+        }
+    };
 
     return (
         <div className="flex flex-col h-screen bg-background text-gray-100 overflow-hidden font-sans selection:bg-primary/30">
@@ -112,6 +137,13 @@ export const Dashboard: React.FC<DashboardProps> = ({ onLogout }) => {
                                 ))}
                             </select>
                         </div>
+
+                        <button
+                            onClick={() => setShowAddModal(true)}
+                            className="bg-primary hover:bg-primary-hover text-white text-xs font-bold py-1.5 px-3 rounded transition-colors"
+                        >
+                            + Add Server
+                        </button>
 
                         <div className="flex items-center space-x-2 bg-background/50 rounded-lg px-3 py-1.5 border border-white/5">
                             <span className="text-xs text-gray-500 uppercase font-semibold tracking-wider">Refresh</span>
@@ -166,6 +198,63 @@ export const Dashboard: React.FC<DashboardProps> = ({ onLogout }) => {
                     </div>
                 )}
 
+                {/* Add Server Modal */}
+                {showAddModal && (
+                    <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                        <div className="bg-surface border border-white/10 rounded-xl max-w-lg w-full p-6 shadow-2xl">
+                            <h2 className="text-xl font-bold text-white mb-4">Add New Server</h2>
+                            {!newSystemCommand ? (
+                                <form onSubmit={handleAddSystem} className="space-y-4">
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-400 mb-1">Server Name</label>
+                                        <input
+                                            type="text"
+                                            value={newSystemName}
+                                            onChange={(e) => setNewSystemName(e.target.value)}
+                                            className="w-full bg-background border border-white/10 rounded px-3 py-2 text-white focus:outline-none focus:border-primary"
+                                            placeholder="e.g. Production DB"
+                                            required
+                                        />
+                                    </div>
+                                    <div className="flex justify-end space-x-3 pt-4">
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowAddModal(false)}
+                                            className="px-4 py-2 text-gray-400 hover:text-white transition-colors"
+                                        >
+                                            Cancel
+                                        </button>
+                                        <button
+                                            type="submit"
+                                            className="px-4 py-2 bg-primary hover:bg-primary-hover text-white rounded font-medium transition-colors"
+                                        >
+                                            Generate Command
+                                        </button>
+                                    </div>
+                                </form>
+                            ) : (
+                                <div className="space-y-4">
+                                    <p className="text-green-400 font-medium">Server Added! Run this command on your server:</p>
+                                    <div className="bg-black/50 p-4 rounded border border-white/5 font-mono text-xs text-gray-300 overflow-x-auto whitespace-pre-wrap">
+                                        {newSystemCommand}
+                                    </div>
+                                    <div className="flex justify-end pt-4">
+                                        <button
+                                            onClick={() => {
+                                                setShowAddModal(false);
+                                                setNewSystemCommand('');
+                                            }}
+                                            className="px-4 py-2 bg-primary hover:bg-primary-hover text-white rounded font-medium transition-colors"
+                                        >
+                                            Done
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                )}
+
                 {activeTab === 'settings' ? (
                     <SettingsSection />
                 ) : activeTab === 'services' ? (
@@ -177,10 +266,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ onLogout }) => {
                         <Server size={48} className="text-gray-600" />
                         <p className="font-medium">No systems configured.</p>
                         <button
-                            onClick={() => setActiveTab('settings')}
+                            onClick={() => setShowAddModal(true)}
                             className="text-primary hover:underline"
                         >
-                            Go to Settings to add a system
+                            Add your first server
                         </button>
                     </div>
                 ) : metrics ? (

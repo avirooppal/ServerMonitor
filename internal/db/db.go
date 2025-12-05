@@ -10,8 +10,16 @@ import (
 
 var DB *sql.DB
 
+type User struct {
+	ID           int       `json:"id"`
+	Email        string    `json:"email"`
+	PasswordHash string    `json:"-"`
+	CreatedAt    time.Time `json:"created_at"`
+}
+
 type System struct {
 	ID        int       `json:"id"`
+	UserID    int       `json:"user_id"`
 	Name      string    `json:"name"`
 	URL       string    `json:"url"`
 	APIKey    string    `json:"api_key"`
@@ -32,22 +40,36 @@ func InitDB() {
 		value TEXT
 	);`
 
+	createUsersTable := `CREATE TABLE IF NOT EXISTS users (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		email TEXT UNIQUE NOT NULL,
+		password_hash TEXT NOT NULL,
+		created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	);`
+
 	createSystemsTable := `CREATE TABLE IF NOT EXISTS systems (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		user_id INTEGER NOT NULL,
 		name TEXT NOT NULL,
 		url TEXT NOT NULL,
 		api_key TEXT NOT NULL,
-		created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+		created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+		FOREIGN KEY(user_id) REFERENCES users(id)
 	);`
 
 	if _, err := DB.Exec(createConfigTable); err != nil {
 		log.Fatalf("Failed to create config table: %v", err)
 	}
 
+	if _, err := DB.Exec(createUsersTable); err != nil {
+		log.Fatalf("Failed to create users table: %v", err)
+	}
+
 	if _, err := DB.Exec(createSystemsTable); err != nil {
 		log.Fatalf("Failed to create systems table: %v", err)
 	}
 
+	InitSessionsTable()
 	InitDiskHistoryTable()
 }
 
@@ -62,16 +84,18 @@ func SetConfig(key, value string) error {
 	return err
 }
 
-func AddSystem(name, url, apiKey string) (int64, error) {
-	res, err := DB.Exec("INSERT INTO systems (name, url, api_key) VALUES (?, ?, ?)", name, url, apiKey)
+// System Management
+
+func AddSystem(userID int, name, url, apiKey string) (int64, error) {
+	res, err := DB.Exec("INSERT INTO systems (user_id, name, url, api_key) VALUES (?, ?, ?, ?)", userID, name, url, apiKey)
 	if err != nil {
 		return 0, err
 	}
 	return res.LastInsertId()
 }
 
-func GetSystems() ([]System, error) {
-	rows, err := DB.Query("SELECT id, name, url, api_key, created_at FROM systems ORDER BY created_at DESC")
+func GetSystems(userID int) ([]System, error) {
+	rows, err := DB.Query("SELECT id, user_id, name, url, api_key, created_at FROM systems WHERE user_id = ? ORDER BY created_at DESC", userID)
 	if err != nil {
 		return nil, err
 	}
@@ -80,7 +104,7 @@ func GetSystems() ([]System, error) {
 	var systems []System
 	for rows.Next() {
 		var s System
-		if err := rows.Scan(&s.ID, &s.Name, &s.URL, &s.APIKey, &s.CreatedAt); err != nil {
+		if err := rows.Scan(&s.ID, &s.UserID, &s.Name, &s.URL, &s.APIKey, &s.CreatedAt); err != nil {
 			return nil, err
 		}
 		systems = append(systems, s)
@@ -90,15 +114,88 @@ func GetSystems() ([]System, error) {
 
 func GetSystem(id int) (*System, error) {
 	var s System
-	err := DB.QueryRow("SELECT id, name, url, api_key, created_at FROM systems WHERE id = ?", id).Scan(&s.ID, &s.Name, &s.URL, &s.APIKey, &s.CreatedAt)
+	err := DB.QueryRow("SELECT id, user_id, name, url, api_key, created_at FROM systems WHERE id = ?", id).Scan(&s.ID, &s.UserID, &s.Name, &s.URL, &s.APIKey, &s.CreatedAt)
 	if err != nil {
 		return nil, err
 	}
 	return &s, nil
 }
 
-func DeleteSystem(id int) error {
-	_, err := DB.Exec("DELETE FROM systems WHERE id = ?", id)
+func GetSystemByAPIKey(apiKey string) (*System, error) {
+	var s System
+	err := DB.QueryRow("SELECT id, user_id, name, url, api_key, created_at FROM systems WHERE api_key = ?", apiKey).Scan(&s.ID, &s.UserID, &s.Name, &s.URL, &s.APIKey, &s.CreatedAt)
+	if err != nil {
+		return nil, err
+	}
+	return &s, nil
+}
+
+func DeleteSystem(id, userID int) error {
+	_, err := DB.Exec("DELETE FROM systems WHERE id = ? AND user_id = ?", id, userID)
+	return err
+}
+
+// User Management
+
+func CreateUser(email, passwordHash string) error {
+	_, err := DB.Exec("INSERT INTO users (email, password_hash) VALUES (?, ?)", email, passwordHash)
+	return err
+}
+
+func GetUserByEmail(email string) (*User, error) {
+	var u User
+	err := DB.QueryRow("SELECT id, email, password_hash, created_at FROM users WHERE email = ?", email).Scan(&u.ID, &u.Email, &u.PasswordHash, &u.CreatedAt)
+	if err != nil {
+		return nil, err
+	}
+	return &u, nil
+}
+
+func GetUserByID(id int) (*User, error) {
+	var u User
+	err := DB.QueryRow("SELECT id, email, password_hash, created_at FROM users WHERE id = ?", id).Scan(&u.ID, &u.Email, &u.PasswordHash, &u.CreatedAt)
+	if err != nil {
+		return nil, err
+	}
+	return &u, nil
+}
+
+// Session Management
+
+type Session struct {
+	Token     string    `json:"token"`
+	UserID    int       `json:"user_id"`
+	ExpiresAt time.Time `json:"expires_at"`
+}
+
+func InitSessionsTable() {
+	createTable := `CREATE TABLE IF NOT EXISTS sessions (
+		token TEXT PRIMARY KEY,
+		user_id INTEGER NOT NULL,
+		expires_at DATETIME NOT NULL,
+		FOREIGN KEY(user_id) REFERENCES users(id)
+	);`
+	if _, err := DB.Exec(createTable); err != nil {
+		log.Fatalf("Failed to create sessions table: %v", err)
+	}
+}
+
+func CreateSession(token string, userID int, expiresAt time.Time) error {
+	_, err := DB.Exec("INSERT INTO sessions (token, user_id, expires_at) VALUES (?, ?, ?)", token, userID, expiresAt)
+	return err
+}
+
+func GetSession(token string) (*Session, error) {
+	var s Session
+	err := DB.QueryRow("SELECT token, user_id, expires_at FROM sessions WHERE token = ?", token).Scan(&s.Token, &s.UserID, &s.ExpiresAt)
+	if err != nil {
+		return nil, err
+	}
+	return &s, nil
+}
+
+func DeleteSession(token string) error {
+	_, err := DB.Exec("DELETE FROM sessions WHERE token = ?", token)
 	return err
 }
 

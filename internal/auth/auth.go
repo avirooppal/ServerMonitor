@@ -3,74 +3,49 @@ package auth
 import (
 	"log"
 	"net/http"
-	"os"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/user/server-moni/internal/db"
-	"sync"
-	"time"
+	"golang.org/x/crypto/bcrypt"
 )
 
-var (
-	AgentTokens = make(map[string]AgentTokenInfo)
-	tokensMutex sync.RWMutex
-)
-
-type AgentTokenInfo struct {
-	CreatedAt time.Time
-	Name      string
-}
-
-func InitAuth() {
-	var apiKey string
-	val, err := db.GetConfig("api_key")
+func Register(email, password string) error {
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if err != nil {
-		// Key doesn't exist, generate one
-		newKey := uuid.New().String()
-		err = db.SetConfig("api_key", newKey)
-		if err != nil {
-			log.Fatalf("Failed to save API key: %v", err)
-		}
-		apiKey = newKey
-		log.Printf("==================================================")
-		log.Printf("NEW API KEY GENERATED: %s", newKey)
-		log.Printf("COPY THIS KEY TO SETUP THE FRONTEND")
-		log.Printf("==================================================")
-	} else {
-		apiKey = val
+		return err
 	}
+	return db.CreateUser(email, string(hashedPassword))
+}
 
-	// Write key to file for user convenience
-	_ = os.Mkdir("data", 0755)
-	err = os.WriteFile("data/api_key.txt", []byte(apiKey), 0644)
+func Login(email, password string) (string, error) {
+	user, err := db.GetUserByEmail(email)
 	if err != nil {
-		log.Printf("Failed to write api_key.txt: %v", err)
+		return "", err // User not found
 	}
-	
-	// Load Agent Tokens (TODO: Persist in DB, for now in-memory is fine as per request scope, or we can use DB)
-	// For simplicity in this iteration, we start empty. 
-	// Ideally we should load from DB.
-}
 
-func AddAgentToken(token string, name string) {
-	tokensMutex.Lock()
-	defer tokensMutex.Unlock()
-	AgentTokens[token] = AgentTokenInfo{
-		CreatedAt: time.Now(),
-		Name:      name,
+	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(password)); err != nil {
+		return "", err // Invalid password
 	}
+
+	// Generate Session Token
+	token := uuid.New().String()
+	expiresAt := time.Now().Add(24 * time.Hour) // 1 day session
+
+	if err := db.CreateSession(token, user.ID, expiresAt); err != nil {
+		return "", err
+	}
+
+	return token, nil
 }
 
-func ValidateAgentToken(token string) bool {
-	tokensMutex.RLock()
-	defer tokensMutex.RUnlock()
-	_, ok := AgentTokens[token]
-	return ok
+func Logout(token string) error {
+	return db.DeleteSession(token)
 }
 
-// Middleware for Dashboard/Admin access (Master Key)
+// Middleware to protect routes and inject UserID
 func AuthMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		authHeader := c.GetHeader("Authorization")
@@ -85,47 +60,24 @@ func AuthMiddleware() gin.HandlerFunc {
 			return
 		}
 
-		apiKey := parts[1]
-		storedKey, err := db.GetConfig("api_key")
-		if err != nil {
-			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
-			return
-		}
-
-		if apiKey != storedKey {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Invalid API Key"})
-			return
-		}
-
-		c.Next()
-	}
-}
-
-// Middleware for Agent Ingestion (Agent Tokens)
-func AgentAuthMiddleware() gin.HandlerFunc {
-	return func(c *gin.Context) {
-		authHeader := c.GetHeader("Authorization")
-		if authHeader == "" {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Authorization header required"})
-			return
-		}
-
-		parts := strings.Split(authHeader, " ")
-		if len(parts) != 2 || parts[0] != "Bearer" {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Invalid authorization format"})
-			return
-		}
-
 		token := parts[1]
-		if !ValidateAgentToken(token) {
-			// Also allow Master Key for testing/backward compatibility
-			storedKey, _ := db.GetConfig("api_key")
-			if token != storedKey {
-				c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Invalid Agent Token"})
-				return
-			}
+		session, err := db.GetSession(token)
+		if err != nil {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Invalid or expired token"})
+			return
 		}
 
+		if time.Now().After(session.ExpiresAt) {
+			db.DeleteSession(token)
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Token expired"})
+			return
+		}
+
+		// Set UserID in context
+		c.Set("userID", session.UserID)
 		c.Next()
 	}
 }
+
+// InitAuth is no longer needed for Master Key, but we keep it empty or remove it.
+// We'll remove it to clean up.
