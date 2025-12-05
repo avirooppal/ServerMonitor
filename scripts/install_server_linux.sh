@@ -9,19 +9,19 @@ fi
 
 echo "Installing Server Monitor (Server)..."
 
-# Build Frontend
-echo "Building Frontend..."
-cd web
-npm install
-npm run build
-cd ..
+# Skip Frontend Build (Hosted on Vercel)
+echo "Skipping Frontend Build..."
+
+# Prepare Dist for Embed (Minimal)
+rm -rf cmd/server/dist
+mkdir -p cmd/server/dist
+# Copy get-key.sh which is needed for the install script
+cp web/public/get-key.sh cmd/server/dist/
+# Create a placeholder index.html
+echo "Server Monitor API is running." > cmd/server/dist/index.html
 
 # Build Backend
 echo "Building Backend..."
-# Ensure we embed the frontend
-rm -rf cmd/server/dist
-mkdir -p cmd/server/dist
-cp -r web/dist/* cmd/server/dist/
 go build -o server-moni ./cmd/server
 
 # Build Agent (Linux AMD64)
