@@ -30,6 +30,7 @@ GOOS=linux GOARCH=amd64 go build -o agent-linux-amd64 ./cmd/agent
 
 # Install Binary
 echo "Installing Binary..."
+systemctl stop server-moni || true
 cp server-moni /usr/local/bin/server-moni
 chmod +x /usr/local/bin/server-moni
 
