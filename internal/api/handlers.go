@@ -274,7 +274,13 @@ func GetMetrics(c *gin.Context) {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		c.JSON(resp.StatusCode, gin.H{"error": "Agent returned error"})
+		// If Agent returns 401, don't return 401 to frontend (triggers logout).
+		// Return 502 Bad Gateway instead.
+		status := resp.StatusCode
+		if status == http.StatusUnauthorized {
+			status = http.StatusBadGateway
+		}
+		c.JSON(status, gin.H{"error": fmt.Sprintf("Agent returned error: %d", resp.StatusCode)})
 		return
 	}
 
