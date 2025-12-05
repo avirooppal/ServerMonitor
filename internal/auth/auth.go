@@ -1,7 +1,7 @@
 package auth
 
 import (
-	"log"
+
 	"net/http"
 	"strings"
 	"time"
