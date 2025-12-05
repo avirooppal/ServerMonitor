@@ -159,18 +159,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ onLogout }) => {
                                         />
                                         <p className="text-xs text-gray-500 mt-1">The URL where your backend is running.</p>
                                     </div>
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-400 mb-1">Backend URL (VPS)</label>
-                                        <input
-                                            type="url"
-                                            value={serverUrl}
-                                            onChange={(e) => setServerUrl(e.target.value)}
-                                            className="w-full bg-background border border-white/10 rounded px-3 py-2 text-white focus:outline-none focus:border-primary"
-                                            placeholder="http://your-vps-ip:8080"
-                                            required
-                                        />
-                                        <p className="text-xs text-gray-500 mt-1">The URL where your backend is running.</p>
-                                    </div>
                                     <div className="flex justify-end space-x-3 pt-4">
                                         <button
                                             type="button"
