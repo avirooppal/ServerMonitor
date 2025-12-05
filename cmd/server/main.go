@@ -12,7 +12,7 @@ import (
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/user/server-moni/internal/api"
-	"github.com/user/server-moni/internal/auth"
+
 	"github.com/user/server-moni/internal/db"
 	"github.com/user/server-moni/internal/metrics"
 )
