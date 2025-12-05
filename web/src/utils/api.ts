@@ -22,6 +22,17 @@ client.interceptors.request.use((config) => {
     return config;
 });
 
+client.interceptors.response.use(
+    (response) => response,
+    (error) => {
+        if (error.response?.status === 401) {
+            localStorage.removeItem('server_moni_key');
+            window.location.reload();
+        }
+        return Promise.reject(error);
+    }
+);
+
 export interface System {
     id: number;
     name: string;
