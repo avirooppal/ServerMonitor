@@ -101,8 +101,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ onLogout }) => {
 
             // Generate Command
             const vpsUrl = 'http://107.150.20.37:8080';
-            const linuxCmd = `curl -L ${vpsUrl}/install.sh | sudo bash -s -- --server=${vpsUrl} --token=${apiKey}`;
-            const winCmd = `iwr ${vpsUrl}/downloads/install_agent_windows.ps1 -OutFile install.ps1; .\\install.ps1 -ServerUrl ${vpsUrl} -Token ${apiKey}`;
+            const linuxCmd = `curl -L https://raw.githubusercontent.com/avirooppal/ServerMonitor/main/scripts/install_agent_linux.sh | sudo bash -s -- --server=${vpsUrl} --token=${apiKey}`;
+            const winCmd = `iwr https://raw.githubusercontent.com/avirooppal/ServerMonitor/main/scripts/install_agent_windows.ps1 -OutFile install.ps1; .\\install.ps1 -ServerUrl ${vpsUrl} -Token ${apiKey}`;
 
             setNewSystemCommand(`Linux:\n${linuxCmd}\n\nWindows (PowerShell):\n${winCmd}`);
             setNewSystemName('');
