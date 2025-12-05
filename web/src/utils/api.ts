@@ -65,3 +65,13 @@ export const verifyKey = async (key: string) => {
     await testClient.post('/verify-key');
     return true;
 };
+
+export const login = async (username: string, password: string): Promise<string> => {
+    const response = await client.post('/login', { username, password });
+    return response.data.api_key;
+};
+
+export const register = async (username: string, password: string): Promise<string> => {
+    const response = await client.post('/register', { username, password });
+    return response.data.api_key;
+};

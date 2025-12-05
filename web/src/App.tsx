@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { getApiKey } from './utils/api';
-import { Setup } from './components/Setup';
+import Auth from './components/Auth';
 import { Dashboard } from './components/Dashboard';
 
 function App() {
@@ -22,7 +22,7 @@ function App() {
       {isAuthenticated ? (
         <Dashboard onLogout={() => setIsAuthenticated(false)} />
       ) : (
-        <Setup onComplete={() => setIsAuthenticated(true)} />
+        <Auth onAuth={() => setIsAuthenticated(true)} />
       )}
     </div>
   );

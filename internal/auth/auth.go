@@ -70,7 +70,7 @@ func ValidateAgentToken(token string) bool {
 	return ok
 }
 
-// Middleware for Dashboard/Admin access (Master Key)
+// Middleware for Dashboard/Admin access (User API Key)
 func AuthMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		authHeader := c.GetHeader("Authorization")
@@ -86,17 +86,16 @@ func AuthMiddleware() gin.HandlerFunc {
 		}
 
 		apiKey := parts[1]
-		storedKey, err := db.GetConfig("api_key")
+		
+		// Validate User
+		user, err := GetUserByAPIKey(apiKey)
 		if err != nil {
-			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
-			return
-		}
-
-		if apiKey != storedKey {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Invalid API Key"})
 			return
 		}
 
+		// Store user in context
+		c.Set("user", user)
 		c.Next()
 	}
 }
