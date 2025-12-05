@@ -49,6 +49,8 @@ func Logout(token string) error {
 func AuthMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		authHeader := c.GetHeader("Authorization")
+		log.Printf("AuthMiddleware: Received Header: %s", authHeader)
+
 		if authHeader == "" {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Authorization header required"})
 			return
@@ -56,6 +58,7 @@ func AuthMiddleware() gin.HandlerFunc {
 
 		parts := strings.Split(authHeader, " ")
 		if len(parts) != 2 || parts[0] != "Bearer" {
+			log.Printf("AuthMiddleware: Invalid format. Parts: %v", parts)
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Invalid authorization format"})
 			return
 		}
@@ -63,11 +66,13 @@ func AuthMiddleware() gin.HandlerFunc {
 		token := parts[1]
 		session, err := db.GetSession(token)
 		if err != nil {
+			log.Printf("AuthMiddleware: Session lookup failed for token %s: %v", token, err)
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Invalid or expired token"})
 			return
 		}
 
 		if time.Now().After(session.ExpiresAt) {
+			log.Printf("AuthMiddleware: Session expired. ExpiresAt: %v, Now: %v", session.ExpiresAt, time.Now())
 			db.DeleteSession(token)
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Token expired"})
 			return
