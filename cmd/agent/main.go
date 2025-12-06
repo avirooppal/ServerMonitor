@@ -22,6 +22,12 @@ import (
 
 type program struct {
 	server *http.Server
+	cfg    *Config
+}
+
+type Config struct {
+	ServerURL string
+	APIKey    string
 }
 
 func (p *program) Start(s service.Service) error {
@@ -41,6 +47,7 @@ func (p *program) Stop(s service.Service) error {
 }
 
 func (p *program) run() {
+	// ... (Data Dir logic remains same) ...
 	// Determine Data Directory
 	var dataDir string
 	if runtime.GOOS == "windows" {
@@ -61,10 +68,6 @@ func (p *program) run() {
 		return
 	}
 	
-	// Initialize DB with specific path
-	// We need to update InitDB to accept a path or set the CWD. 
-	// Setting CWD is risky for services. Better to pass path to InitDB.
-	// For now, let's try setting CWD to the dataDir's parent.
 	if err := os.Chdir(filepath.Dir(dataDir)); err != nil {
 		logger.Error("Failed to change working directory", "error", err)
 	}
@@ -86,16 +89,24 @@ func (p *program) run() {
 	}()
 
 	// Start Pusher if configured
-	serverURL := os.Getenv("SERVER_URL")
-	apiKey := os.Getenv("API_KEY")
-
-	// Fallback to flags if env not set (handled by config package or manual check here since agent has specific flags)
-	// We'll stick to env/flags logic here for now but use logger.
+	// Priority: Config (Flags) > Env
+	serverURL := p.cfg.ServerURL
+	if serverURL == "" {
+		serverURL = os.Getenv("SERVER_URL")
+	}
 	
-	if serverURL != "" && apiKey != "" {
-		go startPusher(collector, serverURL, apiKey)
+	apiKey := p.cfg.APIKey
+	if apiKey == "" {
+		apiKey = os.Getenv("API_KEY")
 	}
 
+	if serverURL != "" && apiKey != "" {
+		go startPusher(collector, serverURL, apiKey)
+	} else {
+		logger.Warn("Push mode disabled: Missing SERVER_URL or API_KEY")
+	}
+
+	// ... (Web Server logic remains same) ...
 	// Setup Web Server
 	gin.SetMode(gin.ReleaseMode)
 	r := gin.New()
@@ -157,7 +168,12 @@ func main() {
 		Arguments:   []string{"-server", flagServer, "-token", flagToken},
 	}
 
-	prg := &program{}
+	prg := &program{
+		cfg: &Config{
+			ServerURL: flagServer,
+			APIKey:    flagToken,
+		},
+	}
 	s, err := service.New(prg, svcConfig)
 	if err != nil {
 		logger.Error("Failed to create service", "error", err)
