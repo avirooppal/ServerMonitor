@@ -17,6 +17,14 @@ for i in "$@"; do
       shift
       ;;
     *)
+      # Assume positional arguments if not a flag
+      if [[ "$i" != --* ]]; then
+        if [ -z "$API_KEY" ]; then
+           API_KEY="$i"
+        elif [ -z "$SERVER_URL" ]; then
+           SERVER_URL="$i"
+        fi
+      fi
       ;;
   esac
 done
