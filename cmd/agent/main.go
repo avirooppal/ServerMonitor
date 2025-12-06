@@ -7,6 +7,7 @@ import (
 	"flag"
 	"net/http"
 	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/gin-contrib/cors"
@@ -39,8 +40,22 @@ func (p *program) Stop(s service.Service) error {
 }
 
 func (p *program) run() {
-	// Ensure data dir exists
-	os.MkdirAll("data", 0755)
+	// Ensure data dir exists relative to executable
+	exePath, err := os.Executable()
+	if err != nil {
+		logger.Error("Failed to get executable path", "error", err)
+		return
+	}
+	dataDir := filepath.Join(filepath.Dir(exePath), "data")
+	if err := os.MkdirAll(dataDir, 0755); err != nil {
+		logger.Error("Failed to create data dir", "error", err)
+		return
+	}
+	
+	// Change working directory to executable dir to ensure DB init works correctly
+	if err := os.Chdir(filepath.Dir(exePath)); err != nil {
+		logger.Error("Failed to change working directory", "error", err)
+	}
 	db.InitDB()
 	metrics.InitStore()
 

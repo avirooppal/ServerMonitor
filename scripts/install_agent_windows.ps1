@@ -9,7 +9,7 @@ if ([string]::IsNullOrEmpty($ServerUrl) -or [string]::IsNullOrEmpty($Token)) {
     exit 1
 }
 
-$AgentUrl = "$ServerUrl/downloads/agent-windows-amd64.exe"
+$AgentUrl = "https://github.com/avirooppal/ServerMonitor/raw/main/downloads/agent-windows-amd64.exe"
 $InstallDir = "C:\Program Files\ServerMonitor"
 $AgentPath = "$InstallDir\agent.exe"
 
