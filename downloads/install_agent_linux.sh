@@ -3,27 +3,24 @@ set -e
 
 # Usage: ./install_agent_linux.sh --server=http://your-server.com --token=YOUR_API_KEY
 
-SERVER_URL=""
-API_KEY=""
+SERVER_URL="__SERVER_URL__"
+API_KEY="$1"
+URL_ARG="$2"
 
-for i in "$@"; do
-  case $i in
-    --server=*)
-      SERVER_URL="${i#*=}"
-      shift
-      ;;
-    --token=*)
-      API_KEY="${i#*=}"
-      shift
-      ;;
-    *)
-      ;;
-  esac
-done
-
-if [ -z "$SERVER_URL" ] || [ -z "$API_KEY" ]; then
-  echo "Usage: $0 --server=http://your-server.com --token=YOUR_API_KEY"
+if [ -z "$API_KEY" ]; then
+  echo "Usage: $0 <API_KEY> [SERVER_URL]"
   exit 1
+fi
+
+# Fallback if placeholder isn't replaced (e.g. manual download or GitHub raw)
+if [ "$SERVER_URL" = "__SERVER_URL__" ]; then
+    if [ -n "$URL_ARG" ]; then
+        SERVER_URL="$URL_ARG"
+    else
+        echo "Error: SERVER_URL not configured. Pass it as the second argument:"
+        echo "Usage: $0 <API_KEY> <SERVER_URL>"
+        exit 1
+    fi
 fi
 
 # Check for root

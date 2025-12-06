@@ -2,9 +2,9 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"flag"
-	"log"
 	"net/http"
 	"os"
 	"time"
@@ -14,30 +14,34 @@ import (
 	"github.com/kardianos/service"
 	"github.com/user/server-moni/internal/auth"
 	"github.com/user/server-moni/internal/db"
+	"github.com/user/server-moni/internal/logger"
 	"github.com/user/server-moni/internal/metrics"
 )
 
-var logger service.Logger
-
 type program struct {
-	ServerURL string
-	Token     string
+	server *http.Server
 }
 
 func (p *program) Start(s service.Service) error {
-	// Start should not block. Do the actual work async.
+	logger.Info("Starting Agent Service...")
 	go p.run()
 	return nil
 }
 
+func (p *program) Stop(s service.Service) error {
+	logger.Info("Stopping Agent Service...")
+	if p.server != nil {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		return p.server.Shutdown(ctx)
+	}
+	return nil
+}
+
 func (p *program) run() {
-	// Initialize DB (SQLite) - For Agent, we might not need full DB if just pushing?
-	// But existing code uses it for Disk History.
 	// Ensure data dir exists
 	os.MkdirAll("data", 0755)
 	db.InitDB()
-
-	// Initialize Metric Store
 	metrics.InitStore()
 
 	// Initialize Collector
@@ -57,20 +61,18 @@ func (p *program) run() {
 	serverURL := os.Getenv("SERVER_URL")
 	apiKey := os.Getenv("API_KEY")
 
-	if serverURL == "" {
-		serverURL = p.ServerURL
-	}
-	if apiKey == "" {
-		apiKey = p.Token
-	}
-
+	// Fallback to flags if env not set (handled by config package or manual check here since agent has specific flags)
+	// We'll stick to env/flags logic here for now but use logger.
+	
 	if serverURL != "" && apiKey != "" {
 		go startPusher(collector, serverURL, apiKey)
 	}
 
 	// Setup Web Server
-	r := gin.Default()
-	// ... (cors config) ...
+	gin.SetMode(gin.ReleaseMode)
+	r := gin.New()
+	r.Use(gin.Recovery())
+	
 	r.Use(cors.New(cors.Config{
 		AllowOrigins:     []string{"*"},
 		AllowMethods:     []string{"GET", "OPTIONS"},
@@ -85,7 +87,6 @@ func (p *program) run() {
 		c.JSON(http.StatusOK, gin.H{"status": "ok"})
 	})
 
-	// Protected Metrics Endpoint (Pull Mode)
 	api.GET("/metrics", auth.AuthMiddleware(), func(c *gin.Context) {
 		data, ok := metrics.GlobalStore.Get("local")
 		if !ok {
@@ -100,21 +101,21 @@ func (p *program) run() {
 		port = "8080"
 	}
 
-	// Only run web server if NOT controlling service or if running as service
-	go func() {
-		log.Printf("Agent running on port %s", port)
-		if err := r.Run(":" + port); err != nil {
-			log.Printf("Web server error: %v", err)
-		}
-	}()
-}
+	p.server = &http.Server{
+		Addr:    ":" + port,
+		Handler: r,
+	}
 
-func (p *program) Stop(s service.Service) error {
-	return nil
+	logger.Info("Agent running", "port", port)
+	if err := p.server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+		logger.Error("Web server error", "error", err)
+	}
 }
 
 func main() {
-	// Parse flags first to get config for service arguments
+	logger.InitLogger()
+	
+	// Agent specific flags
 	var flagServer, flagToken, flagService string
 	flag.StringVar(&flagServer, "server", "", "Server URL")
 	flag.StringVar(&flagToken, "token", "", "API Key")
@@ -128,61 +129,29 @@ func main() {
 		Arguments:   []string{"-server", flagServer, "-token", flagToken},
 	}
 
-	prg := &program{
-		ServerURL: flagServer,
-		Token:     flagToken,
-	}
+	prg := &program{}
 	s, err := service.New(prg, svcConfig)
 	if err != nil {
-		log.Fatal(err)
-	}
-	logger, err = s.Logger(nil)
-	if err != nil {
-		log.Fatal(err)
+		logger.Error("Failed to create service", "error", err)
+		os.Exit(1)
 	}
 
-	// Handle Service Control Flags
 	if flagService != "" {
-		switch flagService {
-		case "install":
-			err = s.Install()
-			if err != nil {
-				log.Fatalf("Failed to install: %v", err)
-			}
-			log.Println("Service installed")
-			return
-		case "uninstall":
-			err = s.Uninstall()
-			if err != nil {
-				log.Fatalf("Failed to uninstall: %v", err)
-			}
-			log.Println("Service uninstalled")
-			return
-		case "start":
-			err = s.Start()
-			if err != nil {
-				log.Fatalf("Failed to start: %v", err)
-			}
-			log.Println("Service started")
-			return
-		case "stop":
-			err = s.Stop()
-			if err != nil {
-				log.Fatalf("Failed to stop: %v", err)
-			}
-			log.Println("Service stopped")
-			return
+		if err := service.Control(s, flagService); err != nil {
+			logger.Error("Service control failed", "action", flagService, "error", err)
+			os.Exit(1)
 		}
+		logger.Info("Service action completed", "action", flagService)
+		return
 	}
 
-	err = s.Run()
-	if err != nil {
-		logger.Error(err)
+	if err := s.Run(); err != nil {
+		logger.Error("Service run failed", "error", err)
 	}
 }
 
 func startPusher(c *metrics.Collector, serverURL, apiKey string) {
-	log.Printf("Starting Push Mode to %s", serverURL)
+	logger.Info("Starting Push Mode", "url", serverURL)
 	client := &http.Client{Timeout: 5 * time.Second}
 	ticker := time.NewTicker(2 * time.Second)
 	for range ticker.C {
@@ -190,13 +159,13 @@ func startPusher(c *metrics.Collector, serverURL, apiKey string) {
 		
 		data, err := json.Marshal(m)
 		if err != nil {
-			log.Printf("Error marshaling metrics: %v", err)
+			logger.Error("Error marshaling metrics", "error", err)
 			continue
 		}
 
 		req, err := http.NewRequest("POST", serverURL+"/api/v1/ingest", bytes.NewBuffer(data))
 		if err != nil {
-			log.Printf("Error creating request: %v", err)
+			logger.Error("Error creating request", "error", err)
 			continue
 		}
 		req.Header.Set("Authorization", "Bearer "+apiKey)
@@ -204,12 +173,12 @@ func startPusher(c *metrics.Collector, serverURL, apiKey string) {
 
 		resp, err := client.Do(req)
 		if err != nil {
-			log.Printf("Error pushing metrics: %v", err)
+			logger.Error("Error pushing metrics", "error", err)
 			continue
 		}
 		resp.Body.Close()
 		if resp.StatusCode != http.StatusOK {
-			log.Printf("Error pushing metrics: server returned %d", resp.StatusCode)
+			logger.Warn("Error pushing metrics", "status", resp.StatusCode)
 		}
 	}
 }
