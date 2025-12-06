@@ -115,9 +115,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ onLogout }) => {
             // Refresh list
             const list = await fetchSystems();
             setSystems(list);
-        } catch (err) {
+        } catch (err: any) {
             console.error(err);
-            setError('Failed to add system');
+            // Show error in the main error state for now, but ideally should be in the modal
+            setError(err.response?.data?.error || 'Failed to add system');
         }
     };
 
