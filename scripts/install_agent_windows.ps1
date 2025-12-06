@@ -15,6 +15,22 @@ $AgentUrl = "https://github.com/avirooppal/ServerMonitor/raw/main/downloads/agen
 $InstallDir = "C:\Program Files\ServerMonitor"
 $AgentPath = "$InstallDir\agent.exe"
 
+# Stop existing service if running
+$ServiceName = "ServerMoniAgent"
+if (Get-Service $ServiceName -ErrorAction SilentlyContinue) {
+    Write-Host "Stopping existing service..."
+    Stop-Service -Name $ServiceName -Force -ErrorAction SilentlyContinue
+    Start-Sleep -Seconds 2
+    
+    # Uninstall old service to ensure clean state
+    if (Test-Path $AgentPath) {
+        & $AgentPath --service uninstall
+    }
+}
+
+# Kill process if still running (to unlock file)
+Get-Process -Name "agent" -ErrorAction SilentlyContinue | Stop-Process -Force
+
 # Create Directory
 New-Item -ItemType Directory -Force -Path $InstallDir
 
