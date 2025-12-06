@@ -4,6 +4,8 @@ param (
     [string]$Token
 )
 
+[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+
 if ([string]::IsNullOrEmpty($ServerUrl) -or [string]::IsNullOrEmpty($Token)) {
     Write-Host "Usage: .\install_agent.ps1 -ServerUrl http://your-server.com -Token YOUR_API_KEY"
     exit 1

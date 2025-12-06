@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"runtime"
 	"time"
 
 	"github.com/gin-contrib/cors"
@@ -40,22 +41,34 @@ func (p *program) Stop(s service.Service) error {
 }
 
 func (p *program) run() {
-	// Ensure data dir exists relative to executable
-	exePath, err := os.Executable()
-	if err != nil {
-		logger.Error("Failed to get executable path", "error", err)
-		return
+	// Determine Data Directory
+	var dataDir string
+	if runtime.GOOS == "windows" {
+		dataDir = filepath.Join(os.Getenv("ProgramData"), "ServerMonitor", "data")
+	} else {
+		// Linux/Mac: Use relative to executable or /var/lib
+		exePath, err := os.Executable()
+		if err != nil {
+			logger.Error("Failed to get executable path", "error", err)
+			return
+		}
+		dataDir = filepath.Join(filepath.Dir(exePath), "data")
 	}
-	dataDir := filepath.Join(filepath.Dir(exePath), "data")
+
+	// Ensure data dir exists
 	if err := os.MkdirAll(dataDir, 0755); err != nil {
-		logger.Error("Failed to create data dir", "error", err)
+		logger.Error("Failed to create data dir", "error", err, "path", dataDir)
 		return
 	}
 	
-	// Change working directory to executable dir to ensure DB init works correctly
-	if err := os.Chdir(filepath.Dir(exePath)); err != nil {
+	// Initialize DB with specific path
+	// We need to update InitDB to accept a path or set the CWD. 
+	// Setting CWD is risky for services. Better to pass path to InitDB.
+	// For now, let's try setting CWD to the dataDir's parent.
+	if err := os.Chdir(filepath.Dir(dataDir)); err != nil {
 		logger.Error("Failed to change working directory", "error", err)
 	}
+	
 	db.InitDB()
 	metrics.InitStore()
 
