@@ -73,7 +73,11 @@ func main() {
 	distFS, err := fs.Sub(staticFiles, "dist")
 	if err != nil {
 		log.Println("Frontend dist not found in embed, serving API only.")
+		r.GET("/", func(c *gin.Context) {
+			c.JSON(http.StatusOK, gin.H{"message": "Server Monitor API is running (Frontend not found)"})
+		})
 	} else {
+		log.Println("Frontend dist found, serving SPA.")
 		assetsFS, _ := fs.Sub(distFS, "assets")
 		r.StaticFS("/assets", http.FS(assetsFS))
 		r.GET("/vite.svg", func(c *gin.Context) {
@@ -83,6 +87,12 @@ func main() {
 		r.GET("/get-key.sh", func(c *gin.Context) {
 			c.FileFromFS("get-key.sh", http.FS(distFS))
 		})
+		
+		// Explicitly serve index.html at root
+		r.GET("/", func(c *gin.Context) {
+			c.FileFromFS("index.html", http.FS(distFS))
+		})
+
 		r.NoRoute(func(c *gin.Context) {
 			// Serve index.html for SPA routing
 			file, err := distFS.Open("index.html")
