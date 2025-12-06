@@ -10,6 +10,7 @@ server-moni
 node_modules/
 web/node_modules/
 web/dist/
+cmd/server/dist/
 web/.env.local
 web/.env.development.local
 web/.env.test.local
