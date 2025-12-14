@@ -15,8 +15,13 @@ fi
 
 # Detect Mode
 MODE=""
+# Detect Mode
+MODE=""
 if command -v systemctl &> /dev/null && systemctl list-units --full -all | grep -Fq "$SERVICE_NAME.service"; then
     MODE="systemd"
+elif command -v systemctl &> /dev/null && systemctl list-units --full -all | grep -Fq "ServerMoniAgent.service"; then
+    MODE="systemd"
+    SERVICE_NAME="ServerMoniAgent"
 elif command -v docker &> /dev/null && docker ps -a --format '{{.Names}}' | grep -Fq "$DOCKER_CONTAINER_NAME"; then
     MODE="docker"
 else
