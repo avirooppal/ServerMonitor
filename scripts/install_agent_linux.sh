@@ -60,9 +60,6 @@ cat << 'EOF' > /usr/local/bin/server-moni
 #!/bin/bash
 
 # Server Monitor Management Script
-SERVICE_NAME="server-moni"
-DOCKER_CONTAINER_NAME="server-moni-agent"
-
 command=$1
 
 if [ -z "$command" ]; then
@@ -70,73 +67,65 @@ if [ -z "$command" ]; then
     exit 1
 fi
 
-# Detect Mode
+SVC_SERVER="server-moni"
+SVC_AGENT="ServerMoniAgent"
+DOCKER_CONTAINER="server-moni-agent"
+
 MODE=""
-if command -v systemctl &> /dev/null && systemctl list-units --full -all | grep -Fq "$SERVICE_NAME.service"; then
-    MODE="systemd"
-elif command -v systemctl &> /dev/null && systemctl list-units --full -all | grep -Fq "ServerMoniAgent.service"; then
-    MODE="systemd"
-    SERVICE_NAME="ServerMoniAgent"
-elif command -v docker &> /dev/null && docker ps -a --format '{{.Names}}' | grep -Fq "$DOCKER_CONTAINER_NAME"; then
-    MODE="docker"
-else
-    # Fallback check for running container if not found by name
-    if [ "$command" == "stop" ] || [ "$command" == "restart" ]; then
-         if docker ps -q -f name=$DOCKER_CONTAINER_NAME > /dev/null; then
-             MODE="docker"
-         fi
-    fi
-    
-    if [ -z "$MODE" ]; then
-        echo "Error: Could not detect Server Monitor service or container."
-        exit 1
+TARGET=""
+
+if command -v systemctl &> /dev/null; then
+    if systemctl is-active --quiet $SVC_SERVER; then
+        MODE="systemd"
+        TARGET=$SVC_SERVER
+    elif systemctl is-active --quiet $SVC_AGENT; then
+        MODE="systemd"
+        TARGET=$SVC_AGENT
+    elif systemctl list-units --full -all | grep -Fq "$SVC_SERVER.service"; then
+        MODE="systemd"
+        TARGET=$SVC_SERVER
+    elif systemctl list-units --full -all | grep -Fq "$SVC_AGENT.service"; then
+        MODE="systemd"
+        TARGET=$SVC_AGENT
     fi
 fi
 
-echo "Detected mode: $MODE"
+if [ -z "$MODE" ] && command -v docker &> /dev/null; then
+    if docker ps -a --format '{{.Names}}' | grep -Fq "$DOCKER_CONTAINER"; then
+        MODE="docker"
+        TARGET=$DOCKER_CONTAINER
+    fi
+fi
+
+if [ -z "$MODE" ]; then
+    echo "Error: Could not detect Server Monitor service."
+    exit 1
+fi
+
+echo "Mode: $MODE"
+echo "Target: $TARGET"
 
 case "$command" in
     start)
-        if [ "$MODE" == "systemd" ]; then
-            sudo systemctl start $SERVICE_NAME
-        else
-            docker start $DOCKER_CONTAINER_NAME
-        fi
+        [ "$MODE" == "systemd" ] && sudo systemctl start $TARGET || docker start $TARGET
         echo "Started."
         ;;
     stop)
-        if [ "$MODE" == "systemd" ]; then
-            sudo systemctl stop $SERVICE_NAME
-        else
-            docker stop $DOCKER_CONTAINER_NAME
-        fi
+        [ "$MODE" == "systemd" ] && sudo systemctl stop $TARGET || docker stop $TARGET
         echo "Stopped."
         ;;
     restart)
-        if [ "$MODE" == "systemd" ]; then
-            sudo systemctl restart $SERVICE_NAME
-        else
-            docker restart $DOCKER_CONTAINER_NAME
-        fi
+        [ "$MODE" == "systemd" ] && sudo systemctl restart $TARGET || docker restart $TARGET
         echo "Restarted."
         ;;
     status)
-        if [ "$MODE" == "systemd" ]; then
-            sudo systemctl status $SERVICE_NAME
-        else
-            docker ps -f name=$DOCKER_CONTAINER_NAME
-        fi
+        [ "$MODE" == "systemd" ] && sudo systemctl status $TARGET || docker ps -f name=$TARGET
         ;;
     logs)
-        if [ "$MODE" == "systemd" ]; then
-            sudo journalctl -u $SERVICE_NAME -f
-        else
-            docker logs -f $DOCKER_CONTAINER_NAME
-        fi
+        [ "$MODE" == "systemd" ] && sudo journalctl -u $TARGET -f || docker logs -f $TARGET
         ;;
     *)
-        echo "Invalid command: $command"
-        echo "Usage: server-moni [start|stop|restart|status|logs]"
+        echo "Invalid command."
         exit 1
         ;;
 esac

@@ -3,9 +3,6 @@
 # Server Monitor Management Script
 # Usage: ./manage.sh [start|stop|restart|status|logs]
 
-SERVICE_NAME="server-moni"
-DOCKER_CONTAINER_NAME="server-moni-agent"
-
 command=$1
 
 if [ -z "$command" ]; then
@@ -13,61 +10,88 @@ if [ -z "$command" ]; then
     exit 1
 fi
 
-# Detect Mode
+# Service Names
+SVC_SERVER="server-moni"
+SVC_AGENT="ServerMoniAgent"
+DOCKER_CONTAINER="server-moni-agent"
+
+# Detect Mode and Target
 MODE=""
-# Detect Mode
-MODE=""
-if command -v systemctl &> /dev/null && systemctl list-units --full -all | grep -Fq "$SERVICE_NAME.service"; then
-    MODE="systemd"
-elif command -v systemctl &> /dev/null && systemctl list-units --full -all | grep -Fq "ServerMoniAgent.service"; then
-    MODE="systemd"
-    SERVICE_NAME="ServerMoniAgent"
-elif command -v docker &> /dev/null && docker ps -a --format '{{.Names}}' | grep -Fq "$DOCKER_CONTAINER_NAME"; then
-    MODE="docker"
-else
-    echo "Error: Could not detect Server Monitor installation (Systemd service or Docker container)."
+TARGET=""
+
+if command -v systemctl &> /dev/null; then
+    # Prioritize active services
+    if systemctl is-active --quiet $SVC_SERVER; then
+        MODE="systemd"
+        TARGET=$SVC_SERVER
+    elif systemctl is-active --quiet $SVC_AGENT; then
+        MODE="systemd"
+        TARGET=$SVC_AGENT
+    # If neither is active, check which one is installed
+    elif systemctl list-units --full -all | grep -Fq "$SVC_SERVER.service"; then
+        MODE="systemd"
+        TARGET=$SVC_SERVER
+    elif systemctl list-units --full -all | grep -Fq "$SVC_AGENT.service"; then
+        MODE="systemd"
+        TARGET=$SVC_AGENT
+    fi
+fi
+
+# If systemd didn't match, try Docker
+if [ -z "$MODE" ]; then
+    if command -v docker &> /dev/null; then
+        if docker ps -a --format '{{.Names}}' | grep -Fq "$DOCKER_CONTAINER"; then
+            MODE="docker"
+            TARGET=$DOCKER_CONTAINER
+        fi
+    fi
+fi
+
+if [ -z "$MODE" ]; then
+    echo "Error: Could not detect Server Monitor service or container."
     exit 1
 fi
 
-echo "Detected mode: $MODE"
+echo "Mode: $MODE"
+echo "Target: $TARGET"
 
 case "$command" in
     start)
         if [ "$MODE" == "systemd" ]; then
-            sudo systemctl start $SERVICE_NAME
+            sudo systemctl start $TARGET
         else
-            docker start $DOCKER_CONTAINER_NAME
+            docker start $TARGET
         fi
         echo "Started."
         ;;
     stop)
         if [ "$MODE" == "systemd" ]; then
-            sudo systemctl stop $SERVICE_NAME
+            sudo systemctl stop $TARGET
         else
-            docker stop $DOCKER_CONTAINER_NAME
+            docker stop $TARGET
         fi
         echo "Stopped."
         ;;
     restart)
         if [ "$MODE" == "systemd" ]; then
-            sudo systemctl restart $SERVICE_NAME
+            sudo systemctl restart $TARGET
         else
-            docker restart $DOCKER_CONTAINER_NAME
+            docker restart $TARGET
         fi
         echo "Restarted."
         ;;
     status)
         if [ "$MODE" == "systemd" ]; then
-            sudo systemctl status $SERVICE_NAME
+            sudo systemctl status $TARGET
         else
-            docker ps -f name=$DOCKER_CONTAINER_NAME
+            docker ps -f name=$TARGET
         fi
         ;;
     logs)
         if [ "$MODE" == "systemd" ]; then
-            sudo journalctl -u $SERVICE_NAME -f
+            sudo journalctl -u $TARGET -f
         else
-            docker logs -f $DOCKER_CONTAINER_NAME
+            docker logs -f $TARGET
         fi
         ;;
     *)
