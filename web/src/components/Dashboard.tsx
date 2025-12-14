@@ -117,9 +117,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onLogout }) => {
             // Remove trailing slash if present
             const cleanUrl = serverUrl.replace(/\/$/, '');
             const linuxCmd = `wget -q -O - https://raw.githubusercontent.com/avirooppal/ServerMonitor/main/downloads/install_agent_linux.sh | sudo bash -s ${apiKey} ${cleanUrl}`;
-            const winCmd = `iwr https://raw.githubusercontent.com/avirooppal/ServerMonitor/main/scripts/install_agent_windows.ps1 -OutFile install.ps1; .\\install.ps1 -ServerUrl ${cleanUrl} -Token ${apiKey}`;
-
-            setNewSystemCommand(`Linux:\n${linuxCmd}\n\nWindows (PowerShell):\n${winCmd}`);
+            setNewSystemCommand(`Run this command on your Linux server:\n\n${linuxCmd}`);
             setNewSystemName('');
             // Refresh list
             const list = await fetchSystems();

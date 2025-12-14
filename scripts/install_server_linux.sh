@@ -44,7 +44,7 @@ SERVICE_NAME="server-moni"
 DOCKER_CONTAINER_NAME="server-moni-agent"
 
 command=$1
-if [ -z "$command"]; then
+if [ -z "$command" ]; then
     echo "Usage: server-moni [start|stop|restart|status|logs]"
     exit 1
 fi
