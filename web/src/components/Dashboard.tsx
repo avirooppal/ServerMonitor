@@ -94,6 +94,15 @@ export const Dashboard: React.FC<DashboardProps> = ({ onLogout }) => {
 
     const [serverUrl, setServerUrl] = useState(() => localStorage.getItem('server_url') || 'http://107.150.20.37:8080');
 
+    const getErrorMessage = (err: any) => {
+        if (typeof err === 'string') return err;
+        if (err?.response?.data?.error) {
+            if (typeof err.response.data.error === 'string') return err.response.data.error;
+            return JSON.stringify(err.response.data.error);
+        }
+        return err?.message || 'Failed to add system';
+    };
+
     const handleAddSystem = async (e: React.FormEvent) => {
         e.preventDefault();
         try {
@@ -117,8 +126,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onLogout }) => {
             setSystems(list);
         } catch (err: any) {
             console.error(err);
-            // Show error in the main error state for now, but ideally should be in the modal
-            setError(err.response?.data?.error || 'Failed to add system');
+            setError(getErrorMessage(err));
         }
     };
 
