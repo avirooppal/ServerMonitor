@@ -7,12 +7,12 @@ export default defineConfig({
   server: {
     proxy: {
       '/api': {
-        target: 'http://107.150.20.37:8080',
+        target: 'http://localhost:8080',
         changeOrigin: true,
         secure: false,
       },
       '/downloads': {
-        target: 'http://107.150.20.37:8080',
+        target: 'http://localhost:8080',
         changeOrigin: true,
         secure: false,
       }

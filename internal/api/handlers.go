@@ -24,6 +24,7 @@ func RegisterRoutes(r *gin.Engine) {
 	
 	// Health Check
 	r.GET("/health", HealthCheck)
+	api.GET("/health", HealthCheck)
 	
 	// Ingestion (Agent Push) - Validates System API Key internally
 	api.POST("/ingest", IngestMetrics)
